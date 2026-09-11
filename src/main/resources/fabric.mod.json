@@ -1,0 +1,42 @@
+{
+        "schemaVersion": 1,
+        "id": "secureauth",
+        "version": "${version}",
+        "name": "SecureAuth",
+        "description": "Real server-enforced login for offline-mode servers — unauthenticated players are quarantined in a sealed environment until they prove they own the account.",
+        "authors": [
+                "Redexe19 or RXScripter"
+        ],
+        "contact": {
+                "homepage": "https://github.com/secureauth/secureauth",
+                "sources": "https://github.com/secureauth/secureauth"
+        },
+        "license": "MIT",
+        "icon": "assets/secureauth/icon.png",
+        "environment": "server",
+        "entrypoints": {
+                "main": [
+                        "net.secureauth.SecureAuth"
+                ]
+        },
+        "mixins": [
+                "secureauth.mixins.json"
+        ],
+        "depends": {
+                "fabricloader": ">=0.19.5",
+                "minecraft": "~26.2",
+                "java": ">=25",
+                "fabric-api": "*"
+        },
+        "jars": [
+                {
+                        "file": "META-INF/jars/bcprov-jdk18on-1.80.jar"
+                },
+                {
+                        "file": "META-INF/jars/snakeyaml-2.2.jar"
+                },
+                {
+                        "file": "META-INF/jars/sqlite-jdbc-3.47.1.0.jar"
+                }
+        ]
+}
