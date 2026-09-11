@@ -1,4 +1,4 @@
-# SecureAuth<img width="2048" height="810" alt="bannerorthumbnail" src="https://github.com/user-attachments/assets/cbcc9f65-c3fe-4e9c-acc0-08a03ebc4def" />
+<img width="2048" height="810" alt="bannerorthumbnail" src="https://github.com/user-attachments/assets/cbcc9f65-c3fe-4e9c-acc0-08a03ebc4def" />
 
 
 **Server-side authentication for offline-mode Minecraft 26.2 Fabric servers.**
