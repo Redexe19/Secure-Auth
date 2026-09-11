@@ -19,7 +19,7 @@ and authenticate through chat commands plus a server-built **chest panel** that 
 clients render as an ordinary chest menu.
 
 > [!TIP]
-> Looking for the deep documentation? **[WIKI.md](WIKI.md)** is the full wiki — every
+> Looking for the deep documentation? **[WIKI.md](https://github.com/Redexe19/Secure-Auth/wiki)** is the full wiki — every
 > command, every config key, the auth state machine, the sandbox internals, the security
 > events reference, FAQ and troubleshooting.
 
