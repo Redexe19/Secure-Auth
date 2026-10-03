@@ -24,6 +24,16 @@ clients render as an ordinary chest menu.
 > command, every config key, the auth state machine, the sandbox internals, the security
 > events reference, FAQ and troubleshooting.
 
+## Why I built this
+ 
+I built SecureAuth because of a problem I noticed in most auth mods: **they block commands, and other simple factors, but they don't hide where you are.**
+ 
+On a typical auth mod, someone can join using your username without knowing your password, and the moment they spawn in, they're standing at your real position. They never have to log in. Just opening the F3 menu shows your coordinates, your dimension, and everything else on that screen. Your base location can be exposed to anyone who can type your name.
+ 
+SecureAuth fixes this at the root. An unauthenticated player is never placed at your real location. The moment they join, they're moved into a private quarantine dimension, so everything they can see, including F3 info and coordinates, belongs to an empty void instead of your world. Your real position stays stored on the server until the correct password is entered, then you're put back exactly where you left off.
+ 
+> Your password should protect more than your account. It should protect your information too
+
 ## 1.0.0 — first stable release
 
 This is the first public release. Everything below is the complete, verified feature set:
