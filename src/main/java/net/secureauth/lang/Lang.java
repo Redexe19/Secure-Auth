@@ -17,9 +17,9 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Text;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -166,10 +166,10 @@ public final class Lang {
         // ------------------------------------------------------------------
 
         /** The catalog language of a player: their client language when translated, else {@code en_us}. */
-        public static String languageOf(ServerPlayer player) {
+        public static String languageOf(ServerPlayerEntity player) {
                 if (player != null) {
                         try {
-                                String language = player.clientInformation().language();
+                                String language = player.getClientOptions().language();
                                 if (language != null && CATALOGS.containsKey(language.toLowerCase(Locale.ROOT))) {
                                         return language.toLowerCase(Locale.ROOT);
                                 }
@@ -200,7 +200,7 @@ public final class Lang {
          * Resolves one message for a player into plain text (brand included).
          * Never throws; unresolved keys render as their literal key name.
          */
-        public static String text(ServerPlayer player, String key, Object... args) {
+        public static String text(ServerPlayerEntity player, String key, Object... args) {
                 return branded(languageOf(player), key, args);
         }
 
@@ -230,22 +230,22 @@ public final class Lang {
          * renders legacy {@code §} codes found inside literal components, so
          * the color markup in the catalogs keeps working.
          */
-        public static MutableComponent comp(ServerPlayer player, String key, Object... args) {
-                return Component.literal(text(player, key, args));
+        public static MutableText comp(ServerPlayerEntity player, String key, Object... args) {
+                return Text.literal(text(player, key, args));
         }
 
         /** Console variant of {@link #comp}. */
-        public static MutableComponent compForConsole(String key, Object... args) {
-                return Component.literal(textForConsole(key, args));
+        public static MutableText compForConsole(String key, Object... args) {
+                return Text.literal(textForConsole(key, args));
         }
 
         /**
          * An unbranded literal component (panel titles, item names, lore lines).
          * {@code null} arguments are dropped by {@link #format}.
          */
-        public static MutableComponent plain(ServerPlayer player, String key, Object... args) {
+        public static MutableText plain(ServerPlayerEntity player, String key, Object... args) {
                 String language = languageOf(player);
-                return Component.literal(format(language, key, pattern(language, key), args));
+                return Text.literal(format(language, key, pattern(language, key), args));
         }
 
         // ------------------------------------------------------------------

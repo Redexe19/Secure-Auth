@@ -1,8 +1,8 @@
 package net.secureauth.mixin;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.secureauth.SecureAuth;
 import net.secureauth.auth.AuthManager;
 import org.slf4j.Logger;
@@ -26,10 +26,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * method entirely also skips the pickup delay bookkeeping, so the entity
  * stays available for legitimately authenticated players.</p>
  *
- * <p><b>Fail closed.</b> Only {@link ServerPlayer} instances are checked
+ * <p><b>Fail closed.</b> Only {@link ServerPlayerEntity} instances are checked
  * (client-side copies of the level never present a server player, so the
  * mixin is inert on the client even in a shared singleplayer JVM). The state
- * comes from {@link AuthManager#isAuthenticated(ServerPlayer)}, which treats
+ * comes from {@link AuthManager#isAuthenticated(ServerPlayerEntity)}, which treats
  * a missing session as unauthenticated. When the mod is absent, disabled, or
  * its manager is shut down, pickups behave exactly like vanilla. No feedback
  * is sent: item pickup is not a deliberate player action, and the touch path
@@ -47,11 +47,11 @@ public abstract class ItemEntityMixin {
 	@Unique
 	private static final Logger SECUREAUTH_LOG = LoggerFactory.getLogger("secureauth.mixin");
 
-	@Inject(method = "playerTouch(Lnet/minecraft/world/entity/player/Player;)V",
+	@Inject(method = "onPlayerCollision(Lnet/minecraft/entity/player/PlayerEntity;)V",
 			at = @At("HEAD"), cancellable = true)
-	private void secureauth$onPlayerTouch(Player player, CallbackInfo ci) {
+	private void secureauth$onPlayerTouch(PlayerEntity player, CallbackInfo ci) {
 		try {
-			if (!(player instanceof ServerPlayer serverPlayer)) {
+			if (!(player instanceof ServerPlayerEntity serverPlayer)) {
 				// Client-side touch or non-player: vanilla behaviour.
 				return;
 			}

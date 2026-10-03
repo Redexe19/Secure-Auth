@@ -9,37 +9,37 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import net.minecraft.commands.Commands;
-import net.minecraft.commands.SharedSuggestionProvider;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
-import net.minecraft.network.protocol.game.ClientboundCommandsPacket;
-import net.minecraft.network.protocol.game.ClientboundDisguisedChatPacket;
-import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
-import net.minecraft.network.protocol.game.ClientboundPlayerChatPacket;
-import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
-import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
-import net.minecraft.network.protocol.game.ClientboundSetDisplayObjectivePacket;
-import net.minecraft.network.protocol.game.ClientboundSetObjectivePacket;
-import net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket;
-import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
-import net.minecraft.network.protocol.game.ClientboundTabListPacket;
+import net.minecraft.command.CommandSource;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.MapIdComponent;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.FilledMapItem;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.map.MapDecoration;
+import net.minecraft.item.map.MapState;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.s2c.common.CustomPayloadS2CPacket;
+import net.minecraft.network.packet.s2c.play.ChatMessageS2CPacket;
+import net.minecraft.network.packet.s2c.play.CommandTreeS2CPacket;
+import net.minecraft.network.packet.s2c.play.GameMessageS2CPacket;
+import net.minecraft.network.packet.s2c.play.MapUpdateS2CPacket;
+import net.minecraft.network.packet.s2c.play.PlayerListHeaderS2CPacket;
+import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
+import net.minecraft.network.packet.s2c.play.PlayerRemoveS2CPacket;
+import net.minecraft.network.packet.s2c.play.ProfilelessChatMessageS2CPacket;
+import net.minecraft.network.packet.s2c.play.ScoreboardDisplayS2CPacket;
+import net.minecraft.network.packet.s2c.play.ScoreboardObjectiveUpdateS2CPacket;
+import net.minecraft.network.packet.s2c.play.TeamS2CPacket;
+import net.minecraft.scoreboard.ScoreboardDisplaySlot;
+import net.minecraft.scoreboard.ScoreboardObjective;
+import net.minecraft.scoreboard.ServerScoreboard;
+import net.minecraft.scoreboard.Team;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.ServerScoreboard;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.network.ServerCommonPacketListenerImpl;
-import net.minecraft.server.network.ServerGamePacketListenerImpl;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.MapItem;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.saveddata.maps.MapDecoration;
-import net.minecraft.world.level.saveddata.maps.MapId;
-import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
-import net.minecraft.world.scores.DisplaySlot;
-import net.minecraft.world.scores.Objective;
-import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.server.command.CommandManager;
+import net.minecraft.server.network.ServerCommonNetworkHandler;
+import net.minecraft.server.network.ServerPlayNetworkHandler;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.world.World;
 import net.secureauth.auth.AuthManager;
 import net.secureauth.auth.AuthSession;
 
@@ -69,14 +69,14 @@ public final class PacketFilterService {
          * Decides whether {@code packet} must be dropped for the connection
          * {@code listener}. Fail-closed: unknown states never authenticate.
          */
-        public boolean shouldDrop(ServerCommonPacketListenerImpl listener, Packet<?> packet) {
+        public boolean shouldDrop(ServerCommonNetworkHandler listener, Packet<?> packet) {
                 if (PacketBypass.isBypassed()) {
                         return false;
                 }
-                if (!(listener instanceof ServerGamePacketListenerImpl gameHandler)) {
+                if (!(listener instanceof ServerPlayNetworkHandler gameHandler)) {
                         return false;
                 }
-                ServerPlayer viewer = gameHandler.player;
+                ServerPlayerEntity viewer = gameHandler.player;
                 if (viewer == null) {
                         return false;
                 }
@@ -87,24 +87,24 @@ public final class PacketFilterService {
 
                 var info = authManager.config().worldInfo;
 
-                if (packet instanceof ClientboundPlayerInfoUpdatePacket || packet instanceof ClientboundPlayerInfoRemovePacket) {
+                if (packet instanceof PlayerListS2CPacket || packet instanceof PlayerRemoveS2CPacket) {
                         return info.hideTabList;
                 }
-                if (packet instanceof ClientboundTabListPacket) {
+                if (packet instanceof PlayerListHeaderS2CPacket) {
                         return info.hideTabList;
                 }
-                if (packet instanceof ClientboundSystemChatPacket
-                                || packet instanceof ClientboundPlayerChatPacket
-                                || packet instanceof ClientboundDisguisedChatPacket) {
+                if (packet instanceof GameMessageS2CPacket
+                                || packet instanceof ChatMessageS2CPacket
+                                || packet instanceof ProfilelessChatMessageS2CPacket) {
                         return info.suppressChatBroadcasts;
                 }
-                if (packet instanceof ClientboundMapItemDataPacket) {
+                if (packet instanceof MapUpdateS2CPacket) {
                         return info.hideMaps;
                 }
-                if (packet instanceof ClientboundSetObjectivePacket || packet instanceof ClientboundSetDisplayObjectivePacket) {
+                if (packet instanceof ScoreboardObjectiveUpdateS2CPacket || packet instanceof ScoreboardDisplayS2CPacket) {
                         return info.filterScoreboard;
                 }
-                if (packet instanceof ClientboundCustomPayloadPacket) {
+                if (packet instanceof CustomPayloadS2CPacket) {
                         return info.filterCustomPayloads;
                 }
                 return false;
@@ -115,17 +115,17 @@ public final class PacketFilterService {
         // ------------------------------------------------------------------
 
         /** Removes all other players from an unauthenticated viewer's tab list. */
-        public void hideOtherPlayers(ServerPlayer viewer, MinecraftServer server) {
+        public void hideOtherPlayers(ServerPlayerEntity viewer, MinecraftServer server) {
                 List<UUID> others = new ArrayList<>();
-                for (ServerPlayer online : server.getPlayerList().getPlayers()) {
-                        if (!online.getUUID().equals(viewer.getUUID())) {
-                                others.add(online.getUUID());
+                for (ServerPlayerEntity online : server.getPlayerManager().getPlayerList()) {
+                        if (!online.getUuid().equals(viewer.getUuid())) {
+                                others.add(online.getUuid());
                         }
                 }
                 if (others.isEmpty()) {
                         return;
                 }
-                PacketBypass.run(() -> viewer.connection.send(new ClientboundPlayerInfoRemovePacket(others)));
+                PacketBypass.run(() -> viewer.networkHandler.sendPacket(new PlayerRemoveS2CPacket(others)));
         }
 
         /**
@@ -139,9 +139,9 @@ public final class PacketFilterService {
          * until the next full rejoin — the "player has to rejoin to get the tab
          * back" report.</p>
          */
-        public void restoreOtherPlayers(ServerPlayer viewer, MinecraftServer server) {
-                PacketBypass.run(() -> viewer.connection.send(ClientboundPlayerInfoUpdatePacket
-                                .createPlayerInitializing(server.getPlayerList().getPlayers())));
+        public void restoreOtherPlayers(ServerPlayerEntity viewer, MinecraftServer server) {
+                PacketBypass.run(() -> viewer.networkHandler.sendPacket(PlayerListS2CPacket
+                                .entryFromPlayer(server.getPlayerManager().getPlayerList())));
         }
 
         /**
@@ -151,29 +151,29 @@ public final class PacketFilterService {
          * had their packets dropped by the filter; without this re-sync they
          * would only appear on the next scoreboard change.
          */
-        public void restoreScoreboard(ServerPlayer viewer, MinecraftServer server) {
+        public void restoreScoreboard(ServerPlayerEntity viewer, MinecraftServer server) {
                 try {
                         ServerScoreboard scoreboard = server.getScoreboard();
                         PacketBypass.run(() -> {
-                                for (PlayerTeam team : scoreboard.getPlayerTeams()) {
-                                        viewer.connection.send(ClientboundSetPlayerTeamPacket
-                                                        .createAddOrModifyPacket(team, true));
+                                for (Team team : scoreboard.getTeams()) {
+                                        viewer.networkHandler.sendPacket(TeamS2CPacket
+                                                        .updateTeam(team, true));
                                 }
-                                Set<Objective> synced = new HashSet<>();
-                                for (DisplaySlot slot : DisplaySlot.values()) {
-                                        Objective objective = scoreboard.getDisplayObjective(slot);
+                                Set<ScoreboardObjective> synced = new HashSet<>();
+                                for (ScoreboardDisplaySlot slot : ScoreboardDisplaySlot.values()) {
+                                        ScoreboardObjective objective = scoreboard.getObjectiveForSlot(slot);
                                         if (objective == null || !synced.add(objective)) {
                                                 continue;
                                         }
-                                        for (Packet<?> packet : scoreboard.getStartTrackingPackets(objective)) {
-                                                viewer.connection.send(packet);
+                                        for (Packet<?> packet : scoreboard.createChangePackets(objective)) {
+                                                viewer.networkHandler.sendPacket(packet);
                                         }
                                 }
                         });
                 } catch (RuntimeException e) {
                         // Cosmetic re-sync; it must never break the auth flow.
                         authManager.logger().log(net.secureauth.security.SecurityEvent.CONFIG_ERROR,
-                                        viewer.getGameProfile().name(), "scoreboard_restore_failed");
+                                        viewer.getGameProfile().getName(), "scoreboard_restore_failed");
                 }
         }
 
@@ -183,23 +183,23 @@ public final class PacketFilterService {
          * delivered, so held maps would otherwise stay blank until their data
          * changes again (the "idk about maps" gap).
          */
-        public void resendMapData(ServerPlayer viewer) {
+        public void resendMapData(ServerPlayerEntity viewer) {
                 if (!authManager.config().worldInfo.hideMaps) {
                         return; // maps were never filtered for this viewer
                 }
                 try {
-                        Inventory inventory = viewer.getInventory();
-                        Level level = viewer.level();
-                        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
-                                ItemStack stack = inventory.getItem(slot);
+                        PlayerInventory inventory = viewer.getInventory();
+                        World level = viewer.getWorld();
+                        for (int slot = 0; slot < inventory.size(); slot++) {
+                                ItemStack stack = inventory.getStack(slot);
                                 if (stack.isEmpty()) {
                                         continue;
                                 }
-                                MapId mapId = stack.get(DataComponents.MAP_ID);
+                                MapIdComponent mapId = stack.get(DataComponentTypes.MAP_ID);
                                 if (mapId == null) {
                                         continue;
                                 }
-                                MapItemSavedData data = MapItem.getSavedData(stack, level);
+                                MapState data = FilledMapItem.getMapState(stack, level);
                                 if (data == null) {
                                         continue;
                                 }
@@ -207,16 +207,16 @@ public final class PacketFilterService {
                                 for (MapDecoration decoration : data.getDecorations()) {
                                         decorations.add(decoration);
                                 }
-                                MapItemSavedData.MapPatch fullPatch = new MapItemSavedData.MapPatch(
-                                                0, 0, MapItem.IMAGE_WIDTH, MapItem.IMAGE_HEIGHT, data.colors);
-                                PacketBypass.run(() -> viewer.connection.send(new ClientboundMapItemDataPacket(
+                                MapState.UpdateData fullPatch = new MapState.UpdateData(
+                                                0, 0, 128, 128, data.colors);
+                                PacketBypass.run(() -> viewer.networkHandler.sendPacket(new MapUpdateS2CPacket(
                                                 mapId, data.scale, data.locked,
                                                 Optional.of(decorations), Optional.of(fullPatch))));
                         }
                 } catch (RuntimeException e) {
                         // Cosmetic re-sync; it must never break the auth flow.
                         authManager.logger().log(net.secureauth.security.SecurityEvent.CONFIG_ERROR,
-                                        viewer.getGameProfile().name(), "map_data_restore_failed");
+                                        viewer.getGameProfile().getName(), "map_data_restore_failed");
                 }
         }
 
@@ -228,59 +228,37 @@ public final class PacketFilterService {
          * Replaces the client's command tree with one containing only the
          * authentication commands, so no server command names leak pre-auth.
          */
-        public void sendMinimalCommandTree(ServerPlayer viewer) {
+        public void sendMinimalCommandTree(ServerPlayerEntity viewer) {
                 try {
-                        RootCommandNode<SharedSuggestionProvider> root = new RootCommandNode<>();
+                        RootCommandNode<CommandSource> root = new RootCommandNode<>();
                         addLiteral(root, "register");
                         addLiteral(root, "login");
                         addLiteral(root, "authpanel");
                         addLiteral(root, "auth");
-                        PacketBypass.run(() -> viewer.connection.send(
-                                        new ClientboundCommandsPacket(root, MinimalTreeInspector.INSTANCE)));
+                        PacketBypass.run(() -> viewer.networkHandler.sendPacket(
+                                        new CommandTreeS2CPacket(root)));
                 } catch (Exception e) {
                         // Worst case: the full tree stays visible; command blocking is
                         // enforced server-side regardless.
                         authManager.logger().log(net.secureauth.security.SecurityEvent.CONFIG_ERROR,
-                                        viewer.getGameProfile().name(), "minimal_command_tree_failed");
+                                        viewer.getGameProfile().getName(), "minimal_command_tree_failed");
                 }
         }
 
         /** Restores the player's real, permission-filtered command tree. */
-        public void restoreCommandTree(ServerPlayer viewer) {
+        public void restoreCommandTree(ServerPlayerEntity viewer) {
                 try {
-                        PacketBypass.run(() -> viewer.level().getServer().getCommands().sendCommands(viewer));
+                        PacketBypass.run(() -> viewer.getWorld().getServer().getCommandManager().sendCommandTree(viewer));
                 } catch (Exception e) {
                         // Vanilla resends the tree on permission change/relog anyway.
                 }
         }
 
         @SuppressWarnings({"unchecked", "rawtypes"})
-        private static void addLiteral(RootCommandNode<SharedSuggestionProvider> root, String name) {
-                LiteralArgumentBuilder builder = Commands.literal(name);
+        private static void addLiteral(RootCommandNode<CommandSource> root, String name) {
+                LiteralArgumentBuilder builder = CommandManager.literal(name);
                 CommandNode node = builder.build();
-                root.addChild((CommandNode<SharedSuggestionProvider>) node);
+                root.addChild((CommandNode<CommandSource>) node);
         }
 
-        /** Only-literals inspector for {@link ClientboundCommandsPacket}. */
-        @SuppressWarnings("rawtypes")
-        static final class MinimalTreeInspector implements ClientboundCommandsPacket.NodeInspector {
-
-                static final MinimalTreeInspector INSTANCE = new MinimalTreeInspector();
-
-                @Override
-                public net.minecraft.resources.Identifier suggestionId(com.mojang.brigadier.tree.ArgumentCommandNode node) {
-                        // The minimal tree contains no argument nodes.
-                        return null;
-                }
-
-                @Override
-                public boolean isExecutable(CommandNode node) {
-                        return node.getCommand() != null;
-                }
-
-                @Override
-                public boolean isRestricted(CommandNode node) {
-                        return node.getRequirement() != null;
-                }
-        }
 }

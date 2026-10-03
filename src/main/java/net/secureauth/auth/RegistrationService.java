@@ -89,7 +89,7 @@ public final class RegistrationService {
 
 	private String offlineUuid(AuthSession session) {
 		try {
-			return session.player.getUUID().toString();
+			return session.player.getUuid().toString();
 		} catch (RuntimeException e) {
 			return null;
 		}
