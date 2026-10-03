@@ -2,9 +2,9 @@ package net.secureauth.mixin;
 
 import com.mojang.brigadier.ParseResults;
 import java.util.Locale;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.command.CommandManager;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.secureauth.SecureAuth;
 import net.secureauth.auth.AuthManager;
 import net.secureauth.auth.AuthSession;
@@ -28,9 +28,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * ({@code ServerboundChatCommandPacket}) — is executed through
  * {@code ServerGamePacketListenerImpl.performUnsignedChatCommand} /
  * {@code performSignedChatCommand}, both of which call
- * {@link Commands#performCommand(ParseResults, String)} directly. Command
+ * {@link CommandManager#execute(ParseResults, String)} directly. Command
  * blocks and minecart command blocks call it too, and
- * {@link Commands#performPrefixedCommand(CommandSourceStack, String)} — used
+ * {@link CommandManager#parseAndExecute(ServerCommandSource, String)} — used
  * by the dedicated-server console and RCON — delegates to
  * {@code performCommand} after trimming the optional {@code '/'} prefix.
  * Both entry points are therefore injected here:
@@ -58,7 +58,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *
  * <p><b>Feedback and logging.</b> Blocked players get the branded, translated
  * {@code auth.command.blocked} message (via
- * {@link AuthManager#sendTranslated(ServerPlayer, String, Object...)}, which
+ * {@link AuthManager#sendTranslated(ServerPlayerEntity, String, Object...)}, which
  * wraps the send in {@code PacketBypass} so the outgoing filter cannot drop
  * it), throttled to one notice per 3 seconds per session through
  * {@code AuthSession.lastBlockedNoticeAt}. A
@@ -81,7 +81,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * command is cancelled) with a debug log — the auth commands themselves are
  * plain string matching and cannot be affected by such an error.</p>
  */
-@Mixin(Commands.class)
+@Mixin(CommandManager.class)
 public abstract class CommandsMixin {
 
         /** Debug-only logger for unexpected internal states (never the security log). */
@@ -110,19 +110,19 @@ public abstract class CommandsMixin {
         @Unique
         private static long secureauth$lastBlockedLogAt;
 
-        @Inject(method = "performPrefixedCommand(Lnet/minecraft/commands/CommandSourceStack;Ljava/lang/String;)V",
+        @Inject(method = "executeWithPrefix(Lnet/minecraft/server/command/ServerCommandSource;Ljava/lang/String;)V",
                         at = @At("HEAD"), cancellable = true)
-        private void secureauth$onPerformPrefixedCommand(CommandSourceStack source, String command, CallbackInfo ci) {
+        private void secureauth$onPerformPrefixedCommand(ServerCommandSource source, String command, CallbackInfo ci) {
                 // Console/RCON input: the raw string may carry a leading '/' (stripped below).
                 secureauth$gate(source, command, ci);
         }
 
-        @Inject(method = "performCommand(Lcom/mojang/brigadier/ParseResults;Ljava/lang/String;)V",
+        @Inject(method = "execute(Lcom/mojang/brigadier/ParseResults;Ljava/lang/String;)V",
                         at = @At("HEAD"), cancellable = true)
-        private void secureauth$onPerformCommand(ParseResults<CommandSourceStack> parseResults, String command,
+        private void secureauth$onPerformCommand(ParseResults<ServerCommandSource> parseResults, String command,
                         CallbackInfo ci) {
                 // The funnel for every player-executed command (chat signed/unsigned).
-                CommandSourceStack source = null;
+                ServerCommandSource source = null;
                 if (parseResults != null && parseResults.getContext() != null) {
                         source = parseResults.getContext().getSource();
                 }
@@ -134,7 +134,7 @@ public abstract class CommandsMixin {
          * session is blocked unless the command root is one of the six auth roots.
          * Non-player sources and a disabled/inert mod pass through. Never throws.
          */
-        private void secureauth$gate(CommandSourceStack source, String command, CallbackInfo ci) {
+        private void secureauth$gate(ServerCommandSource source, String command, CallbackInfo ci) {
                 try {
                         if (source == null || command == null || command.isBlank()) {
                                 // Nothing executable; brigadier's own behaviour is untouched.
@@ -152,7 +152,7 @@ public abstract class CommandsMixin {
                         if (config == null || !config.worldProtection.blockCommands) {
                                 return;
                         }
-                        ServerPlayer player = source.getPlayer();
+                        ServerPlayerEntity player = source.getPlayer();
                         if (player == null) {
                                 // Console, RCON, command blocks, functions, datapacks.
                                 return;
@@ -178,7 +178,7 @@ public abstract class CommandsMixin {
         }
 
         /** Throttled player feedback + security log for a blocked command. Never throws. */
-        private static void secureauth$notify(AuthManager manager, AuthSession session, ServerPlayer player,
+        private static void secureauth$notify(AuthManager manager, AuthSession session, ServerPlayerEntity player,
                         String command) {
                 if (session == null) {
                         // No session => no throttle state; stay silent (the block itself is enough).

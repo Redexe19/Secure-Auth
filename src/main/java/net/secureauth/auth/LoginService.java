@@ -69,9 +69,9 @@ public final class LoginService {
 		}
 
 		// Layer 1: per-connection cooldown.
-		if (!tracker.tryBeginAttempt(session.player.getUUID())) {
+		if (!tracker.tryBeginAttempt(session.player.getUuid())) {
 			return Result.Failure.of("auth.login.cooldown",
-					tracker.cooldownRemainingSeconds(session.player.getUUID()));
+					tracker.cooldownRemainingSeconds(session.player.getUuid()));
 		}
 
 		// Layer 2: per-IP rate limit.
@@ -116,7 +116,7 @@ public final class LoginService {
 				account.setLockoutUntil(0);
 				account.setLastLogin(now);
 				logger.log(SecurityEvent.LOGIN_SUCCESS, session.usernameNorm, session.ip);
-				tracker.clear(session.player.getUUID());
+				tracker.clear(session.player.getUuid());
 				return new Result.Success(account);
 			}
 
@@ -133,7 +133,7 @@ public final class LoginService {
 	private Result onFailure(AuthSession session, Account account) {
 		int failures = repository.recordLoginFailure(account.id());
 		account.setFailedAttempts(failures);
-		tracker.recordFailure(session.player.getUUID());
+		tracker.recordFailure(session.player.getUuid());
 		repository.recordAttempt(account.id(), session.usernameNorm, session.ip, false, "wrong_password");
 		logger.log(SecurityEvent.LOGIN_FAILURE, session.usernameNorm, session.ip,
 				"failed_attempts=" + failures);
@@ -157,7 +157,7 @@ public final class LoginService {
 		}
 
 		// Layer 4: kick after excessive in-session failures.
-		if (tracker.sessionFailures(session.player.getUUID()) >= config.security.kickAfterFailures) {
+		if (tracker.sessionFailures(session.player.getUuid()) >= config.security.kickAfterFailures) {
 			return Result.Failure.of("auth.login.rateLimited");
 		}
 

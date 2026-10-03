@@ -1,8 +1,8 @@
 package net.secureauth.mixin;
 
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.entity.Entity;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.secureauth.SecureAuth;
 import net.secureauth.world.AuthWorldManager;
 import org.slf4j.Logger;
@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  *
  * <p><b>What it blocks and why.</b> {@code addFreshEntity(Entity)} is the single
  * public vanilla entry point through which every server-side entity enters a
- * {@link ServerLevel} (natural mob spawns, insomnia phantoms, wandering traders,
+ * {@link ServerWorld} (natural mob spawns, insomnia phantoms, wandering traders,
  * dropped items, projectiles, TNT, falling blocks, mod-spawned creatures…).
  * The auth dimension must contain nothing but quarantined players and their
  * stone platform, so any non-player entity addition to {@code secureauth:auth}
@@ -35,22 +35,22 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * <p><b>Failure policy.</b> No exception ever escapes into the entity-add path;
  * an unexpected internal error fails closed (entity refused) with a debug log.</p>
  */
-@Mixin(ServerLevel.class)
+@Mixin(ServerWorld.class)
 public abstract class ServerLevelMixin {
 
         /** Debug-only logger for unexpected internal states (never the security log). */
         private static final Logger SECUREAUTH_LOG = LoggerFactory.getLogger("secureauth.mixin");
 
-        @Inject(method = "addFreshEntity(Lnet/minecraft/world/entity/Entity;)Z",
+        @Inject(method = "spawnEntity(Lnet/minecraft/entity/Entity;)Z",
                         at = @At("HEAD"), cancellable = true)
         private void secureauth$rejectEntitiesInAuthDimension(Entity entity, CallbackInfoReturnable<Boolean> cir) {
                 try {
-                        if (entity instanceof ServerPlayer) {
+                        if (entity instanceof ServerPlayerEntity) {
                                 // Players are the only legitimate inhabitants.
                                 return;
                         }
-                        ServerLevel self = (ServerLevel) (Object) this;
-                        if (self.dimension() != AuthWorldManager.AUTH_DIMENSION) {
+                        ServerWorld self = (ServerWorld) (Object) this;
+                        if (self.getRegistryKey() != AuthWorldManager.AUTH_DIMENSION) {
                                 return;
                         }
                         SecureAuth mod = SecureAuth.get();
