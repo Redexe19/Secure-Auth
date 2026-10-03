@@ -1,9 +1,9 @@
 package net.secureauth.auth;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.GameType;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.GameMode;
 import net.secureauth.account.Account;
 import net.secureauth.ui.AuthPanel;
 import net.secureauth.world.OriginalLocation;
@@ -23,7 +23,7 @@ public final class AuthSession {
          * discarded entity whose teleport silently no-ops while the real
          * player stayed stuck in the auth dimension).
          */
-        public ServerPlayer player;
+        public ServerPlayerEntity player;
         public final String usernameNorm;
         public final String usernameDisplay;
         public final String ip;
@@ -35,7 +35,7 @@ public final class AuthSession {
         public OriginalLocation originalLocation;
 
         /** Where the player is held inside the auth area. */
-        public ServerLevel authLevel;
+        public ServerWorld authLevel;
         public BlockPos authSpawn;
 
         public final long joinedAt = System.currentTimeMillis();
@@ -68,7 +68,7 @@ public final class AuthSession {
          * disconnect (never the live value, which a missed restore could have
          * left poisoned at the sandbox's adventure).
          */
-        public GameType resumedGameMode;
+        public GameMode resumedGameMode;
         /** Throttle for the release-watchdog "you were sent back" notice (max 1 per 5 s). */
         public long lastRescueNoticeAt;
         /** Throttle for the release-watchdog security log entries (max 1 per 5 s). */
@@ -77,7 +77,7 @@ public final class AuthSession {
         /** The auth chest panel this player currently has open, if any. */
         public AuthPanel openPanel;
 
-        AuthSession(ServerPlayer player, String usernameNorm, String usernameDisplay, String ip) {
+        AuthSession(ServerPlayerEntity player, String usernameNorm, String usernameDisplay, String ip) {
                 this.player = player;
                 this.usernameNorm = usernameNorm;
                 this.usernameDisplay = usernameDisplay;

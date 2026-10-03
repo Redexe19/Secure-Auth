@@ -1,9 +1,9 @@
 package net.secureauth.world;
 
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.GameType;
-import net.minecraft.world.level.Level;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.world.GameMode;
+import net.minecraft.world.World;
 
 /**
  * Snapshot of where and how the player was when they joined, taken BEFORE
@@ -12,18 +12,18 @@ import net.minecraft.world.level.Level;
  */
 public final class OriginalLocation {
 
-        public final ResourceKey<Level> dimension;
+        public final RegistryKey<World> dimension;
         public final double x;
         public final double y;
         public final double z;
         public final float yaw;
         public final float pitch;
-        public final GameType gameMode;
+        public final GameMode gameMode;
         public final boolean invulnerable;
         public final boolean noGravity;
 
-        private OriginalLocation(ResourceKey<Level> dimension, double x, double y, double z,
-                        float yaw, float pitch, GameType gameMode, boolean invulnerable, boolean noGravity) {
+        private OriginalLocation(RegistryKey<World> dimension, double x, double y, double z,
+                        float yaw, float pitch, GameMode gameMode, boolean invulnerable, boolean noGravity) {
                 this.dimension = dimension;
                 this.x = x;
                 this.y = y;
@@ -36,14 +36,14 @@ public final class OriginalLocation {
         }
 
         /** Captures the player's authoritative server-side state. */
-        public static OriginalLocation capture(ServerPlayer player) {
+        public static OriginalLocation capture(ServerPlayerEntity player) {
                 return new OriginalLocation(
-                                player.level().dimension(),
+                                player.getWorld().getRegistryKey(),
                                 player.getX(), player.getY(), player.getZ(),
-                                player.getYRot(), player.getXRot(),
-                                player.gameMode.getGameModeForPlayer(),
+                                player.getYaw(), player.getPitch(),
+                                player.interactionManager.getGameMode(),
                                 player.isInvulnerable(),
-                                player.isNoGravity());
+                                player.hasNoGravity());
         }
 
         /**
@@ -56,10 +56,10 @@ public final class OriginalLocation {
          * invulnerable/no-gravity flags ARE the sandbox flags — copying them
          * would restore a permanently floating, invulnerable player after login.</p>
          */
-        static OriginalLocation respawn(ResourceKey<Level> dimension, double x, double y, double z,
-                        ServerPlayer player) {
+        static OriginalLocation respawn(RegistryKey<World> dimension, double x, double y, double z,
+                        ServerPlayerEntity player) {
                 return new OriginalLocation(dimension, x, y, z, 0.0F, 0.0F,
-                                player.gameMode.getGameModeForPlayer(), false, false);
+                                player.interactionManager.getGameMode(), false, false);
         }
 
         /**
