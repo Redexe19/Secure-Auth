@@ -1,9 +1,9 @@
 package net.secureauth.mixin;
 
-import io.netty.channel.ChannelFutureListener;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.server.network.ServerCommonPacketListenerImpl;
-import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.network.PacketCallbacks;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.server.network.ServerCommonNetworkHandler;
+import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.secureauth.SecureAuth;
 import net.secureauth.auth.AuthManager;
 import net.secureauth.network.PacketBypass;
@@ -31,7 +31,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * <p><b>Verified targets</b> (minijavap + {@code javap -c} on the 26.2
  * game-server jar): both methods are public, return {@code void} and have the
  * exact descriptors {@code send(Lnet/minecraft/network/protocol/Packet;)V} and
- * {@code send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;)V}.
+ * {@code send(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketCallbacks;)V}.
  * The one-argument overload delegates to the two-argument one with a
  * {@code null} listener, so a packet that passes here is checked exactly once
  * more in the delegate — {@code shouldDrop} is a pure, idempotent lookup, so
@@ -69,14 +69,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * as "pass": an error in the isolation layer must never break packet delivery
  * for everyone; the fail-closed boundary lives elsewhere.</p>
  */
-@Mixin(ServerCommonPacketListenerImpl.class)
+@Mixin(ServerCommonNetworkHandler.class)
 public abstract class ServerCommonPacketListenerImplMixin {
 
         /** Debug-only logger for unexpected internal states (never the security log). */
         @Unique
         private static final Logger SECUREAUTH_LOG = LoggerFactory.getLogger("secureauth.mixin");
 
-        @Inject(method = "send(Lnet/minecraft/network/protocol/Packet;)V", at = @At("HEAD"), cancellable = true)
+        @Inject(method = "sendPacket(Lnet/minecraft/network/packet/Packet;)V", at = @At("HEAD"), cancellable = true)
         private void secureauth$onSend(Packet<?> packet, CallbackInfo ci) {
                 if (secureauth$shouldDrop(packet)) {
                         // void method: plain cancellation drops the packet entirely.
@@ -84,9 +84,9 @@ public abstract class ServerCommonPacketListenerImplMixin {
                 }
         }
 
-        @Inject(method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;)V",
+        @Inject(method = "send(Lnet/minecraft/network/packet/Packet;Lnet/minecraft/network/PacketCallbacks;)V",
                         at = @At("HEAD"), cancellable = true)
-        private void secureauth$onSendWithListener(Packet<?> packet, ChannelFutureListener futureListener, CallbackInfo ci) {
+        private void secureauth$onSendWithListener(Packet<?> packet, PacketCallbacks callbacks, CallbackInfo ci) {
                 if (secureauth$shouldDrop(packet)) {
                         // void method: plain cancellation drops the packet entirely.
                         ci.cancel();
@@ -113,10 +113,10 @@ public abstract class ServerCommonPacketListenerImplMixin {
                         if (manager == null) {
                                 return false;
                         }
-                        if (!((Object) this instanceof ServerGamePacketListenerImpl)) {
+                        if (!((Object) this instanceof ServerPlayNetworkHandler)) {
                                 return false;
                         }
-                        return manager.packetFilter().shouldDrop((ServerCommonPacketListenerImpl) (Object) this, packet);
+                        return manager.packetFilter().shouldDrop((ServerCommonNetworkHandler) (Object) this, packet);
                 } catch (Throwable t) {
                         SECUREAUTH_LOG.debug("SecureAuth outgoing packet filter error; packet passes", t);
                         return false;

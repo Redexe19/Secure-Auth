@@ -44,6 +44,21 @@ public final class PasswordService {
 
         /** Immutable record of everything needed to verify a password later. */
         public record PasswordHash(String algorithm, int version, byte[] salt, byte[] hash, String params) {
+                public PasswordHash {
+                        salt = salt == null ? null : salt.clone();
+                        hash = hash == null ? null : hash.clone();
+                }
+
+                @Override
+                public byte[] salt() {
+                        return salt == null ? null : salt.clone();
+                }
+
+                @Override
+                public byte[] hash() {
+                        return hash == null ? null : hash.clone();
+                }
+
                 @Override
                 public String toString() {
                         // Defensive: never expose salt/hash through accidental logging.
@@ -123,7 +138,12 @@ public final class PasswordService {
                 Argon2BytesGenerator generator = new Argon2BytesGenerator();
                 generator.init(bcParams);
                 byte[] output = new byte[params.outputLength];
-                generator.generateBytes(password.toCharArray(), output);
+                char[] passwordChars = password.toCharArray();
+                try {
+                        generator.generateBytes(passwordChars, output);
+                } finally {
+                        wipe(passwordChars);
+                }
                 return output;
         }
 
@@ -146,9 +166,18 @@ public final class PasswordService {
 
         private byte[] pbkdf2Derive(String password, byte[] salt, AuthConfig.PasswordSection.Pbkdf2Params params) {
                 try {
-                        PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt, params.iterations, params.outputLength * 8);
-                        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
-                        return factory.generateSecret(spec).getEncoded();
+                        char[] passwordChars = password.toCharArray();
+                        PBEKeySpec spec = null;
+                        try {
+                                spec = new PBEKeySpec(passwordChars, salt, params.iterations, params.outputLength * 8);
+                                SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+                                return factory.generateSecret(spec).getEncoded();
+                        } finally {
+                                wipe(passwordChars);
+                                if (spec != null) {
+                                        spec.clearPassword();
+                                }
+                        }
                 } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
                         throw new IllegalStateException("PBKDF2 unavailable in this JVM", e);
                 }

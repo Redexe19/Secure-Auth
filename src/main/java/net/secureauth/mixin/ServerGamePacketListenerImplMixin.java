@@ -1,11 +1,11 @@
 package net.secureauth.mixin;
 
-import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
-import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
-import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
-import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.network.packet.c2s.play.ClickSlotC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
+import net.minecraft.network.packet.c2s.play.VehicleMoveC2SPacket;
+import net.minecraft.server.network.ServerPlayNetworkHandler;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.secureauth.SecureAuth;
 import net.secureauth.auth.AuthManager;
 import net.secureauth.ui.ChestGui;
@@ -62,7 +62,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Cancellation uses {@code ci.cancel()} — every target returns {@code void}.</p>
  *
  * <p><b>Fail closed.</b> The gate consults
- * {@link AuthManager#isAuthenticated(ServerPlayer)}, which returns
+ * {@link AuthManager#isAuthenticated(ServerPlayerEntity)}, which returns
  * {@code false} for a missing session — a player the mod never quarantined
  * (e.g. a race between the play-phase switch and the JOIN event) is treated
  * as unauthenticated and blocked, never trusted. When the mod is absent,
@@ -77,7 +77,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * cancelled) with a debug log, because these guards ARE the security
  * boundary.</p>
  */
-@Mixin(ServerGamePacketListenerImpl.class)
+@Mixin(ServerPlayNetworkHandler.class)
 public abstract class ServerGamePacketListenerImplMixin {
 
         /** Debug-only logger for unexpected internal states (never the security log). */
@@ -86,29 +86,29 @@ public abstract class ServerGamePacketListenerImplMixin {
 
         /** Mirrors the target's {@code public ServerPlayer player} field exactly. */
         @Shadow
-        public ServerPlayer player;
+        public ServerPlayerEntity player;
 
-        @Inject(method = "handleMovePlayer(Lnet/minecraft/network/protocol/game/ServerboundMovePlayerPacket;)V",
+        @Inject(method = "onPlayerMove(Lnet/minecraft/network/packet/c2s/play/PlayerMoveC2SPacket;)V",
                         at = @At("HEAD"), cancellable = true)
-        private void secureauth$onMovePlayer(ServerboundMovePlayerPacket packet, CallbackInfo ci) {
+        private void secureauth$onMovePlayer(PlayerMoveC2SPacket packet, CallbackInfo ci) {
                 secureauth$blockIfUnauthenticated(ci);
         }
 
-        @Inject(method = "handleMoveVehicle(Lnet/minecraft/network/protocol/game/ServerboundMoveVehiclePacket;)V",
+        @Inject(method = "onVehicleMove(Lnet/minecraft/network/packet/c2s/play/VehicleMoveC2SPacket;)V",
                         at = @At("HEAD"), cancellable = true)
-        private void secureauth$onMoveVehicle(ServerboundMoveVehiclePacket packet, CallbackInfo ci) {
+        private void secureauth$onMoveVehicle(VehicleMoveC2SPacket packet, CallbackInfo ci) {
                 secureauth$blockIfUnauthenticated(ci);
         }
 
-        @Inject(method = "handlePlayerAction(Lnet/minecraft/network/protocol/game/ServerboundPlayerActionPacket;)V",
+        @Inject(method = "onPlayerAction(Lnet/minecraft/network/packet/c2s/play/PlayerActionC2SPacket;)V",
                         at = @At("HEAD"), cancellable = true)
-        private void secureauth$onPlayerAction(ServerboundPlayerActionPacket packet, CallbackInfo ci) {
+        private void secureauth$onPlayerAction(PlayerActionC2SPacket packet, CallbackInfo ci) {
                 secureauth$blockIfUnauthenticated(ci);
         }
 
-        @Inject(method = "handleContainerClick(Lnet/minecraft/network/protocol/game/ServerboundContainerClickPacket;)V",
+        @Inject(method = "onClickSlot(Lnet/minecraft/network/packet/c2s/play/ClickSlotC2SPacket;)V",
                         at = @At("HEAD"), cancellable = true)
-        private void secureauth$onContainerClick(ServerboundContainerClickPacket packet, CallbackInfo ci) {
+        private void secureauth$onContainerClick(ClickSlotC2SPacket packet, CallbackInfo ci) {
                 secureauth$blockIfUnauthenticatedUnlessPanel(ci);
         }
 
@@ -128,7 +128,7 @@ public abstract class ServerGamePacketListenerImplMixin {
                         if (manager == null) {
                                 return;
                         }
-                        ServerPlayer player = this.player;
+                        ServerPlayerEntity player = this.player;
                         if (player == null) {
                                 return;
                         }
@@ -158,14 +158,14 @@ public abstract class ServerGamePacketListenerImplMixin {
                         if (manager == null) {
                                 return;
                         }
-                        ServerPlayer player = this.player;
+                        ServerPlayerEntity player = this.player;
                         if (player == null) {
                                 return;
                         }
                         if (manager.isAuthenticated(player)) {
                                 return;
                         }
-                        if (player.containerMenu instanceof ChestGui) {
+                        if (player.currentScreenHandler instanceof ChestGui) {
                                 // Clicks in the auth/admin chest panels are handled by the
                                 // menu itself; the vanilla handler would only be a passthrough.
                                 return;

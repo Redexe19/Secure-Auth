@@ -1,32 +1,32 @@
 package net.secureauth.world;
 
 import java.util.Optional;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.level.GameType;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.chunk.LevelChunkSection;
-import net.minecraft.world.level.portal.TeleportTransition;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.GameMode;
+import net.minecraft.world.TeleportTarget;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldProperties;
+import net.minecraft.world.chunk.ChunkSection;
+import net.minecraft.world.chunk.WorldChunk;
 import net.secureauth.auth.AuthSession;
 import net.secureauth.config.AuthConfig;
 import net.secureauth.security.SecurityEvent;
 import net.secureauth.security.SecurityLogger;
-import net.minecraft.world.level.storage.LevelData;
 
 /**
  * Pre-authentication world isolation.
@@ -41,8 +41,8 @@ import net.minecraft.world.level.storage.LevelData;
  */
 public final class AuthWorldManager {
 
-        public static final ResourceKey<Level> AUTH_DIMENSION =
-                        ResourceKey.create(Registries.DIMENSION, Identifier.fromNamespaceAndPath("secureauth", "auth"));
+        public static final RegistryKey<World> AUTH_DIMENSION =
+                        RegistryKey.of(RegistryKeys.WORLD, Identifier.of("secureauth", "auth"));
 
         /**
          * Static mirror of {@code worldProtection.clearAuthEntities} read by the
@@ -86,8 +86,8 @@ public final class AuthWorldManager {
         // Dimension access
         // ------------------------------------------------------------------
 
-        public ServerLevel authLevel(MinecraftServer server) {
-                return server.getLevel(AUTH_DIMENSION);
+        public ServerWorld authLevel(MinecraftServer server) {
+                return server.getWorld(AUTH_DIMENSION);
         }
 
         // ------------------------------------------------------------------
@@ -105,7 +105,7 @@ public final class AuthWorldManager {
          * "original location" a successful login restores them to, or they would
          * authenticate straight into the void.</p>
          */
-        public void quarantine(ServerPlayer player, AuthSession session) {
+        public void quarantine(ServerPlayerEntity player, AuthSession session) {
                 // Re-arm the one-shot ability reconciliation: the next login will
                 // need it again (logout/unregister reuse the same session object).
                 session.abilitiesReconciled = false;
@@ -127,7 +127,7 @@ public final class AuthWorldManager {
                 }
                 session.originalLocation = original;
 
-                ServerLevel authLevel = authLevel(player.level().getServer());
+                ServerWorld authLevel = authLevel(player.getWorld().getServer());
                 if (authLevel == null || !"auth_dimension".equals(config.worldProtection.isolationMode)) {
                         // Fail-closed fallback: the player stays where they are but is still
                         // immobilised, invulnerable, filtered and command-blocked.
@@ -146,14 +146,14 @@ public final class AuthWorldManager {
                 teleport(player, authLevel, spawn.getX() + 0.5, spawn.getY() + 1.0, spawn.getZ() + 0.5, 0.0F, 0.0F);
                 player.setInvulnerable(true);
                 player.setNoGravity(true);
-                player.stopSleeping();
-                player.setDeltaMovement(Vec3.ZERO);
+                player.wakeUp();
+                player.setVelocity(Vec3d.ZERO);
                 resetFallDistanceSafely(player);
                 // Adventure mode (since 1.2.2): the CLIENT refuses to break or place blocks
                 // and to interact with the world on its own, so the pre-auth sandbox looks
                 // and feels sealed instead of only being sealed server-side (client-side
                 // prediction used to make ghost breaks look possible).
-                player.setGameMode(GameType.ADVENTURE);
+                player.changeGameMode(GameMode.ADVENTURE);
                 applyBlindness(player);
                 logger.log(SecurityEvent.PLAYER_QUARANTINED, session.usernameNorm, session.ip,
                                 "mode=auth_dimension");
@@ -161,13 +161,13 @@ public final class AuthWorldManager {
 
         /** Freezes the player without teleporting (fallback isolation mode). */
         private void freezeInPlace(AuthSession session) {
-                ServerPlayer player = session.player;
-                session.authLevel = (ServerLevel) player.level();
-                session.authSpawn = player.blockPosition();
+                ServerPlayerEntity player = session.player;
+                session.authLevel = (ServerWorld) player.getWorld();
+                session.authSpawn = player.getBlockPos();
                 player.setInvulnerable(true);
                 player.setNoGravity(true);
-                player.setDeltaMovement(Vec3.ZERO);
-                player.setGameMode(GameType.ADVENTURE);
+                player.setVelocity(Vec3d.ZERO);
+                player.changeGameMode(GameMode.ADVENTURE);
                 applyBlindness(player);
         }
 
@@ -178,7 +178,7 @@ public final class AuthWorldManager {
          * snapshot that points into the auth dimension itself is treated as
          * missing for the same reason.
          */
-        public void restore(ServerPlayer player, AuthSession session) {
+        public void restore(ServerPlayerEntity player, AuthSession session) {
                 OriginalLocation original = session.originalLocation;
                 if (original != null && original.dimension == AUTH_DIMENSION) {
                         // A snapshot pointing into the auth dimension is treated as missing:
@@ -191,31 +191,31 @@ public final class AuthWorldManager {
                 if (original == null) {
                         original = respawnLocation(player);
                 }
-                MinecraftServer server = player.level().getServer();
+                MinecraftServer server = player.getWorld().getServer();
                 // The sandbox effects (blindness, adventure) are lifted BEFORE the player
                 // is moved back, and the original game type is restored either way.
                 clearBlindness(player);
-                player.setGameMode(original != null ? original.gameMode : GameType.SURVIVAL);
+                player.changeGameMode(original != null ? original.gameMode : GameMode.SURVIVAL);
                 if (original == null || server == null) {
                         // Defensive fallback (the snapshot is always captured; this path
                         // should be unreachable): send the player to the overworld spawn.
-                        ServerLevel overworld = server != null ? server.overworld() : null;
+                        ServerWorld overworld = server != null ? server.getOverworld() : null;
                         if (overworld != null) {
                                 BlockPos spawn = fallbackSpawn(overworld);
                                 teleport(player, overworld, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, 0, 0);
                         }
                 } else {
-                        ServerLevel target = server.getLevel(original.dimension);
+                        ServerWorld target = server.getWorld(original.dimension);
                         if (target == null) {
-                                target = server.overworld();
+                                target = server.getOverworld();
                         }
                         teleport(player, target, original.x, original.y, original.z, original.yaw, original.pitch);
-                        player.setGameMode(original.gameMode);
+                        player.changeGameMode(original.gameMode);
                 }
 
                 player.setInvulnerable(original != null && original.invulnerable);
                 player.setNoGravity(original != null && original.noGravity);
-                player.setDeltaMovement(Vec3.ZERO);
+                player.setVelocity(Vec3d.ZERO);
                 // A rescued player may have been mid-fall inside the void when the
                 // release fired: without this the accumulated fall distance would
                 // come along and hit them the moment they land in the real world.
@@ -239,8 +239,8 @@ public final class AuthWorldManager {
          * Returns true when a rescue actually happened (the player was inside the
          * auth dimension and was moved out).
          */
-        public boolean rescueFromAuthDimension(ServerPlayer player, AuthSession session) {
-                if (player == null || player.level().dimension() != AUTH_DIMENSION) {
+        public boolean rescueFromAuthDimension(ServerPlayerEntity player, AuthSession session) {
+                if (player == null || player.getWorld().getRegistryKey() != AUTH_DIMENSION) {
                         return false;
                 }
                 if (session.originalLocation == null || session.originalLocation.dimension == AUTH_DIMENSION) {
@@ -282,7 +282,7 @@ public final class AuthWorldManager {
          * what keeps this safety net from ever fighting later operator
          * game-mode or effect changes on a fully released player.</p>
          */
-        public boolean reconcileOutsideSandbox(ServerPlayer player, AuthSession session) {
+        public boolean reconcileOutsideSandbox(ServerPlayerEntity player, AuthSession session) {
                 OriginalLocation snapshot = session.originalLocation;
                 boolean repaired = false;
 
@@ -291,15 +291,15 @@ public final class AuthWorldManager {
                 // session has no snapshot, so its game-type repair requires this
                 // corroboration — an operator's deliberate adventure (no signature)
                 // must never be touched.
-                MobEffectInstance blindness = null;
+                StatusEffectInstance blindness = null;
                 try {
-                        blindness = player.getEffect(MobEffects.BLINDNESS);
+                        blindness = player.getStatusEffect(StatusEffects.BLINDNESS);
                 } catch (RuntimeException ignored) {
                         // Effect probing is best-effort; nothing to repair then.
                 }
                 boolean blindnessResidue = blindness != null && isSandboxBlindness(blindness);
                 boolean snapshotPair = snapshot != null && snapshot.invulnerable && snapshot.noGravity;
-                boolean flagResidue = player.isInvulnerable() && player.isNoGravity() && !snapshotPair;
+                boolean flagResidue = player.isInvulnerable() && player.hasNoGravity() && !snapshotPair;
                 boolean signature = blindnessResidue || flagResidue;
 
                 // Adventure residue: the sandbox switched the player to ADVENTURE at
@@ -308,11 +308,11 @@ public final class AuthWorldManager {
                 // Without a snapshot, only a corroborating signature justifies the
                 // repair (the remembered value alone cannot distinguish a poisoned
                 // save from a deliberate operator change).
-                GameType current = player.gameMode.getGameModeForPlayer();
-                GameType truth = snapshot != null ? snapshot.gameMode : session.resumedGameMode;
-                if (current == GameType.ADVENTURE && truth != null && truth != GameType.ADVENTURE
+                GameMode current = player.interactionManager.getGameMode();
+                GameMode truth = snapshot != null ? snapshot.gameMode : session.resumedGameMode;
+                if (current == GameMode.ADVENTURE && truth != null && truth != GameMode.ADVENTURE
                                 && (snapshot != null || signature)) {
-                        player.setGameMode(truth);
+                        player.changeGameMode(truth);
                         repaired = true;
                 }
 
@@ -340,18 +340,18 @@ public final class AuthWorldManager {
          * applies (infinite duration, ambient, no particles). Only that instance
          * is ever removed by the reconciliation.
          */
-        private static boolean isSandboxBlindness(MobEffectInstance effect) {
+        private static boolean isSandboxBlindness(StatusEffectInstance effect) {
                 try {
-                        return effect.isAmbient() && !effect.isVisible() && effect.getDuration() < 0;
+                        return effect.isAmbient() && !effect.shouldShowParticles() && effect.getDuration() < 0;
                 } catch (RuntimeException ignored) {
                         return false;
                 }
         }
 
         /** Best-effort fall-distance reset (API details vary across MC versions). */
-        private static void resetFallDistanceSafely(ServerPlayer player) {
+        private static void resetFallDistanceSafely(ServerPlayerEntity player) {
                 try {
-                        player.resetFallDistance();
+                        player.onLanding();
                 } catch (RuntimeException ignored) {
                         // Cosmetic best-effort; the damage hook covers the rest.
                 }
@@ -369,20 +369,20 @@ public final class AuthWorldManager {
                 if (session.authenticated()) {
                         return;
                 }
-                ServerPlayer player = session.player;
+                ServerPlayerEntity player = session.player;
 
                 // Position re-sync (since 1.2.2): while quarantined the server rejects all
                 // client movement, so the client could otherwise keep a local prediction of
                 // walking away. Ten times a second the authoritative platform position is
                 // pushed back out, which visibly snaps any ghost movement home.
-                MinecraftServer server = player.level().getServer();
-                if (server != null && server.getTickCount() % 10 == 0
+                MinecraftServer server = player.getWorld().getServer();
+                if (server != null && server.getTicks() % 10 == 0
                                 && session.authLevel != null && session.authSpawn != null) {
                         BlockPos spawn = session.authSpawn;
                         try {
-                                player.connection.teleport(spawn.getX() + 0.5, spawn.getY() + 1.0,
+                                player.networkHandler.requestTeleport(spawn.getX() + 0.5, spawn.getY() + 1.0,
                                                 spawn.getZ() + 0.5, 0.0F, 0.0F);
-                                player.setDeltaMovement(Vec3.ZERO);
+                                player.setVelocity(Vec3d.ZERO);
                         } catch (RuntimeException ignored) {
                                 // Re-sync is best-effort; the drift guard below still corrects.
                         }
@@ -390,7 +390,7 @@ public final class AuthWorldManager {
 
                 // Blindness upkeep (once per second): re-apply the infinite effect so a
                 // cleared effect (command, other mod) comes back within a second.
-                if (server != null && server.getTickCount() % 20 == 0) {
+                if (server != null && server.getTicks() % 20 == 0) {
                         applyBlindness(player);
                 }
 
@@ -399,9 +399,9 @@ public final class AuthWorldManager {
                 }
 
                 // Correct dimension escapes: the player must remain in the auth dimension.
-                if (session.authLevel != null && player.level() != session.authLevel) {
+                if (session.authLevel != null && player.getWorld() != session.authLevel) {
                         logger.log(SecurityEvent.SANDBOX_ESCAPE_CORRECTED, session.usernameNorm, session.ip,
-                                        "escaped_to=" + player.level().dimension().identifier());
+                                        "escaped_to=" + player.getWorld().getRegistryKey().getValue());
                         quarantine(player, session);
                         return;
                 }
@@ -409,7 +409,7 @@ public final class AuthWorldManager {
                 // Correct drifting off the platform (covers movement, velocity and
                 // same-dimension teleports that slipped through other guards).
                 if (session.authSpawn != null && session.authLevel != null) {
-                        Vec3 pos = player.position();
+                        Vec3d pos = player.getPos();
                         double dx = pos.x - (session.authSpawn.getX() + 0.5);
                         double dz = pos.z - (session.authSpawn.getZ() + 0.5);
                         double dy = pos.y - session.authSpawn.getY();
@@ -418,7 +418,7 @@ public final class AuthWorldManager {
                                 BlockPos spawn = session.authSpawn;
                                 teleport(player, session.authLevel, spawn.getX() + 0.5, spawn.getY() + 1.0,
                                                 spawn.getZ() + 0.5, 0.0F, 0.0F);
-                                player.setDeltaMovement(Vec3.ZERO);
+                                player.setVelocity(Vec3d.ZERO);
                                 logger.log(SecurityEvent.SANDBOX_ESCAPE_CORRECTED, session.usernameNorm, session.ip, "drift");
                         }
                 }
@@ -434,11 +434,11 @@ public final class AuthWorldManager {
          * reach the player's save data. The position repair only applies to
          * players actually inside the auth dimension.
          */
-        public void restoreOnDisconnect(ServerPlayer player, AuthSession session) {
+        public void restoreOnDisconnect(ServerPlayerEntity player, AuthSession session) {
                 if (player == null) {
                         return;
                 }
-                boolean inAuthDimension = player.level().dimension() == AUTH_DIMENSION;
+                boolean inAuthDimension = player.getWorld().getRegistryKey() == AUTH_DIMENSION;
                 OriginalLocation snapshot = session.originalLocation;
                 // A real snapshot was captured BEFORE the sandbox switched the player to
                 // adventure, so its game type is the trustworthy one. The respawn
@@ -450,11 +450,11 @@ public final class AuthWorldManager {
                 }
                 OriginalLocation original = snapshot;
                 if (inAuthDimension) {
-                        MinecraftServer server = player.level().getServer();
-                        ServerLevel target = original != null && server != null
-                                        ? server.getLevel(original.dimension) : null;
+                        MinecraftServer server = player.getWorld().getServer();
+                        ServerWorld target = original != null && server != null
+                                        ? server.getWorld(original.dimension) : null;
                         if (target == null && server != null) {
-                                target = server.overworld();
+                                target = server.getOverworld();
                         }
                         if (target != null && original != null) {
                                 // 1.2.3: the disconnect repair no longer dimension-TELEPORTS.
@@ -468,11 +468,11 @@ public final class AuthWorldManager {
                                 // position, rotation). The entity stays registered in the
                                 // auth level's storage until the vanilla teardown removes
                                 // it through its own removal callback.
-                                player.setServerLevel(target);
-                                player.setPos(original.x, original.y, original.z);
-                                player.setYRot(original.yaw);
-                                player.setXRot(original.pitch);
-                                player.setDeltaMovement(Vec3.ZERO);
+                                player.setServerWorld(target);
+                                player.setPosition(original.x, original.y, original.z);
+                                player.setYaw(original.yaw);
+                                player.setPitch(original.pitch);
+                                player.setVelocity(Vec3d.ZERO);
                         }
                 }
                 // The disconnect save must not keep the quarantine sandbox state — in
@@ -485,7 +485,7 @@ public final class AuthWorldManager {
                 // happens before the sandbox applies them) and the respawn fallback
                 // never carries them.
                 clearBlindness(player);
-                player.setGameMode(realSnapshot ? original.gameMode : GameType.SURVIVAL);
+                player.changeGameMode(realSnapshot ? original.gameMode : GameMode.SURVIVAL);
                 player.setInvulnerable(original != null && original.invulnerable);
                 player.setNoGravity(original != null && original.noGravity);
         }
@@ -496,28 +496,28 @@ public final class AuthWorldManager {
          * otherwise the overworld spawn. Never returns a position inside the auth
          * dimension.
          */
-        private OriginalLocation respawnLocation(ServerPlayer player) {
-                MinecraftServer server = player.level().getServer();
-                ServerLevel target = null;
+        private OriginalLocation respawnLocation(ServerPlayerEntity player) {
+                MinecraftServer server = player.getWorld().getServer();
+                ServerWorld target = null;
                 BlockPos pos = null;
                 try {
-                        ServerPlayer.RespawnConfig config = player.getRespawnConfig();
-                        LevelData.RespawnData data = config != null ? config.respawnData() : null;
-                        if (data != null && data.pos() != null && server != null) {
-                                ServerLevel candidate = server.getLevel(data.dimension());
-                                if (candidate != null && candidate.dimension() != AUTH_DIMENSION) {
+                        BlockPos respawnPos = player.getSpawnPointPosition();
+                        RegistryKey<World> respawnDimension = player.getSpawnPointDimension();
+                        if (respawnPos != null && respawnDimension != null && server != null) {
+                                ServerWorld candidate = server.getWorld(respawnDimension);
+                                if (candidate != null && candidate.getRegistryKey() != AUTH_DIMENSION) {
                                         target = candidate;
-                                        pos = data.pos();
+                                        pos = respawnPos;
                                 }
                         }
                 } catch (RuntimeException ignored) {
                         // Fall through to the overworld spawn.
                 }
                 if (target == null || pos == null) {
-                        target = server != null ? server.overworld() : (ServerLevel) player.level();
+                        target = server != null ? server.getOverworld() : (ServerWorld) player.getWorld();
                         pos = fallbackSpawn(target);
                 }
-                return OriginalLocation.respawn(target.dimension(), pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
+                return OriginalLocation.respawn(target.getRegistryKey(), pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
                                 player);
         }
 
@@ -526,12 +526,12 @@ public final class AuthWorldManager {
                 if (!config.worldProtection.clearAuthEntities) {
                         return;
                 }
-                ServerLevel level = authLevel(server);
+                ServerWorld level = authLevel(server);
                 if (level == null) {
                         return;
                 }
-                for (Entity entity : level.getAllEntities()) {
-                        if (!(entity instanceof ServerPlayer)) {
+                for (Entity entity : level.iterateEntities()) {
+                        if (!(entity instanceof ServerPlayerEntity)) {
                                 entity.discard();
                         }
                 }
@@ -558,14 +558,14 @@ public final class AuthWorldManager {
                 if (!config.worldProtection.pureVoid) {
                         return;
                 }
-                ServerLevel level = authLevel(server);
+                ServerWorld level = authLevel(server);
                 if (level == null) {
                         return;
                 }
 
                 int scanRadius = 8;
                 try {
-                        scanRadius = Math.min(16, Math.max(8, server.getPlayerList().getViewDistance() + 2));
+                        scanRadius = Math.min(16, Math.max(8, server.getPlayerManager().getViewDistance() + 2));
                 } catch (RuntimeException ignored) {
                         // Keep the conservative default radius.
                 }
@@ -582,7 +582,7 @@ public final class AuthWorldManager {
                                                 continue; // only the current ring
                                         }
                                         probed++;
-                                        LevelChunk chunk = level.getChunkSource().getChunkNow(dx, dz);
+                                        WorldChunk chunk = level.getChunkManager().getWorldChunk(dx, dz);
                                         if (chunk == null) {
                                                 continue; // not loaded: nothing to clean, nothing to see
                                         }
@@ -616,18 +616,18 @@ public final class AuthWorldManager {
          * builder share {@link #isHoldingCellBlock}, so the box can never be
          * mistaken for junk (or the junk for the box).
          */
-        private int purgeChunk(ServerLevel level, LevelChunk chunk, int budget) {
+        private int purgeChunk(ServerWorld level, WorldChunk chunk, int budget) {
                 int removed = 0;
-                int baseX = chunk.getPos().x() << 4;
-                int baseZ = chunk.getPos().z() << 4;
-                LevelChunkSection[] sections = chunk.getSections();
+                int baseX = chunk.getPos().x << 4;
+                int baseZ = chunk.getPos().z << 4;
+                ChunkSection[] sections = chunk.getSectionArray();
                 for (int i = 0; i < sections.length && removed < budget; i++) {
-                        LevelChunkSection section = sections[i];
-                        if (section == null || section.hasOnlyAir()) {
+                        ChunkSection section = sections[i];
+                        if (section == null || section.isEmpty()) {
                                 continue;
                         }
-                        int sectionBaseY = chunk.getMinY() + (i << 4);
-                        if (!section.maybeHas(state -> !state.isAir())) {
+                        int sectionBaseY = chunk.getBottomY() + (i << 4);
+                        if (!section.hasAny(state -> !state.isAir())) {
                                 continue;
                         }
                         for (int y = 0; y < 16 && removed < budget; y++) {
@@ -642,8 +642,8 @@ public final class AuthWorldManager {
                                                 if (isHoldingCellBlock(worldX, worldY, worldZ)) {
                                                         continue;
                                                 }
-                                                level.setBlock(new BlockPos(worldX, worldY, worldZ),
-                                                                Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                                                level.setBlockState(new BlockPos(worldX, worldY, worldZ),
+                                                                Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
                                                 removed++;
                                         }
                                 }
@@ -653,11 +653,11 @@ public final class AuthWorldManager {
         }
 
         /** Resolves a safe overworld spawn position for the defensive fallback. */
-        private BlockPos fallbackSpawn(ServerLevel overworld) {
+        private BlockPos fallbackSpawn(ServerWorld overworld) {
                 try {
-                        net.minecraft.world.level.storage.LevelData.RespawnData respawn = overworld.getLevelData().getRespawnData();
-                        if (respawn != null && respawn.pos() != null) {
-                                return respawn.pos();
+                        BlockPos respawn = overworld.getLevelProperties().getSpawnPos();
+                        if (respawn != null && respawn != null) {
+                                return respawn;
                         }
                 } catch (Exception ignored) {
                         // fall through
@@ -682,11 +682,11 @@ public final class AuthWorldManager {
          * off, never fall out and never suffocate: the worst outcome of any
          * release failure is "waiting inside a sealed cell", exactly as requested.
          */
-        private BlockPos ensurePlatform(ServerLevel level) {
+        private BlockPos ensurePlatform(ServerWorld level) {
                 int radius = config.worldProtection.platformRadius;
                 int y = config.worldProtection.platformY;
                 BlockState floor = platformBlockState();
-                BlockState shell = Blocks.BEDROCK.defaultBlockState();
+                BlockState shell = Blocks.BEDROCK.getDefaultState();
                 boolean box = config.worldProtection.platformBox;
                 int shellRadius = radius + 1;
                 BlockPos centre = new BlockPos(0, y, 0);
@@ -702,7 +702,7 @@ public final class AuthWorldManager {
                                         // Replace anything that is not the intended cell block: air,
                                         // liquids, and stray solids left behind by legacy generators.
                                         if (level.getBlockState(pos).getBlock() != wanted.getBlock()) {
-                                                level.setBlockAndUpdate(pos, wanted);
+                                                level.setBlockState(pos, wanted);
                                                 changed = true;
                                         }
                                 }
@@ -745,15 +745,15 @@ public final class AuthWorldManager {
 
         private BlockState platformBlockState() {
                 try {
-                        Identifier id = Identifier.parse(config.worldProtection.platformBlock);
-                        Optional<Block> block = BuiltInRegistries.BLOCK.getOptional(id);
+                        Identifier id = Identifier.of(config.worldProtection.platformBlock);
+                        Optional<Block> block = Registries.BLOCK.getOrEmpty(id);
                         if (block.isPresent()) {
-                                return block.get().defaultBlockState();
+                                return block.get().getDefaultState();
                         }
                 } catch (Exception ignored) {
                         // fall through to default
                 }
-                return Blocks.BEDROCK.defaultBlockState();
+                return Blocks.BEDROCK.getDefaultState();
         }
 
         // ------------------------------------------------------------------
@@ -770,22 +770,22 @@ public final class AuthWorldManager {
          * server-authoritative, and the once-per-second upkeep in
          * {@link #tick(AuthSession)} restores it even after a clearing command.
          */
-        private void applyBlindness(ServerPlayer player) {
+        private void applyBlindness(ServerPlayerEntity player) {
                 if (!config.worldProtection.quarantineBlindness) {
                         return;
                 }
                 try {
-                        player.addEffect(new MobEffectInstance(MobEffects.BLINDNESS,
-                                        MobEffectInstance.INFINITE_DURATION, 0, true, false, false));
+                        player.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS,
+                                        StatusEffectInstance.INFINITE, 0, true, false, false));
                 } catch (RuntimeException ignored) {
                         // Effect application is best-effort; the dimension does the real isolation.
                 }
         }
 
         /** Removes the quarantine blindness effect (restores, disconnect, timeout). */
-        private void clearBlindness(ServerPlayer player) {
+        private void clearBlindness(ServerPlayerEntity player) {
                 try {
-                        player.removeEffect(MobEffects.BLINDNESS);
+                        player.removeStatusEffect(StatusEffects.BLINDNESS);
                 } catch (RuntimeException ignored) {
                         // Removal is best-effort.
                 }
@@ -795,10 +795,10 @@ public final class AuthWorldManager {
         // Teleport helper (single adaptation point for the 26.2 teleport API)
         // ------------------------------------------------------------------
 
-        private void teleport(ServerPlayer player, ServerLevel level, double x, double y, double z, float yaw, float pitch) {
+        private void teleport(ServerPlayerEntity player, ServerWorld level, double x, double y, double z, float yaw, float pitch) {
                 clearStaleRemovalFlag(player);
-                player.teleport(new TeleportTransition(level, new Vec3(x, y, z), Vec3.ZERO, yaw, pitch,
-                                TeleportTransition.DO_NOTHING));
+                player.teleportTo(new TeleportTarget(level, new Vec3d(x, y, z), Vec3d.ZERO, yaw, pitch,
+                                TeleportTarget.NO_OP));
         }
 
         /**
@@ -810,12 +810,12 @@ public final class AuthWorldManager {
          * the live entity of a still-connected session (the connection still points
          * at it), mirroring what vanilla itself does mid-transfer.
          */
-        private static void clearStaleRemovalFlag(ServerPlayer player) {
+        private static void clearStaleRemovalFlag(ServerPlayerEntity player) {
                 if (!player.isRemoved()) {
                         return;
                 }
                 try {
-                        if (player.connection != null && player.connection.player == player) {
+                        if (player.networkHandler != null && player.networkHandler.player == player) {
                                 ((net.secureauth.mixin.EntityMixin) player).secureauth$unsetRemoved();
                         }
                 } catch (RuntimeException ignored) {
@@ -824,7 +824,7 @@ public final class AuthWorldManager {
         }
 
         /** Disconnects a player with a fully resolved (literal) reason component. */
-        public static void disconnect(ServerPlayer player, Component reason) {
-                player.connection.disconnect(reason);
+        public static void disconnect(ServerPlayerEntity player, Text reason) {
+                player.networkHandler.disconnect(reason);
         }
 }

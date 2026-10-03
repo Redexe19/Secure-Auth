@@ -21,9 +21,10 @@ import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.TypedActionResult;
+import net.minecraft.util.WorldSavePath;
 import net.secureauth.account.AccountDatabase;
 import net.secureauth.account.AccountRepository;
 import net.secureauth.auth.AuthManager;
@@ -148,6 +149,12 @@ public final class SecureAuth implements ModInitializer {
                         secLogger.log(SecurityEvent.CONFIG_ERROR, MOD_ID, null, "",
                                         "config_load_failed; using defaults");
                 }
+                if (loaded.authentication.sessionPersistSeconds > 0) {
+                        LOGGER.warn("SecureAuth session auto-resume is enabled for {} seconds. It bypasses the password "
+                                        + "for a returning username from the same IP, which is not a reliable identity "
+                                        + "on shared networks. Set authentication.sessionPersistSeconds: 0 to disable it.",
+                                        loaded.authentication.sessionPersistSeconds);
+                }
 
                 // --- 4. Connection lifecycle ----------------------------------------------
                 ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -173,10 +180,10 @@ public final class SecureAuth implements ModInitializer {
                 // ever hurt a player while they are inside secureauth:auth.
                 if (loaded.worldProtection.noDamageInSandbox) {
                         ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
-                                if (entity instanceof ServerPlayer player
-                                                && player.level().dimension() == AuthWorldManager.AUTH_DIMENSION) {
+                                if (entity instanceof ServerPlayerEntity player
+                                                && player.getWorld().getRegistryKey() == AuthWorldManager.AUTH_DIMENSION) {
                                         try {
-                                                player.resetFallDistance();
+                                                player.onLanding();
                                         } catch (RuntimeException ignored) {
                                                 // Cosmetic best-effort.
                                         }
@@ -196,25 +203,25 @@ public final class SecureAuth implements ModInitializer {
                 // --- 6. Interaction guards ------------------------------------------------
                 if (loaded.worldProtection.blockInteraction) {
                         PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, blockEntity) ->
-                                        player instanceof ServerPlayer serverPlayer
+                                        player instanceof ServerPlayerEntity serverPlayer
                                                         ? interactionGuard(serverPlayer, true)
                                                         : true);
                         UseBlockCallback.EVENT.register((player, level, hand, hitResult) ->
-                                        player instanceof ServerPlayer serverPlayer && !interactionGuard(serverPlayer, false)
-                                                        ? InteractionResult.FAIL
-                                                        : InteractionResult.PASS);
+                                        player instanceof ServerPlayerEntity serverPlayer && !interactionGuard(serverPlayer, false)
+                                                        ? ActionResult.FAIL
+                                                        : ActionResult.PASS);
                         UseItemCallback.EVENT.register((player, level, hand) ->
-                                        player instanceof ServerPlayer serverPlayer && !interactionGuard(serverPlayer, false)
-                                                        ? InteractionResult.FAIL
-                                                        : InteractionResult.PASS);
+                                        player instanceof ServerPlayerEntity serverPlayer && !interactionGuard(serverPlayer, false)
+                                                        ? TypedActionResult.fail(player.getStackInHand(hand))
+                                                        : TypedActionResult.pass(player.getStackInHand(hand)));
                         AttackEntityCallback.EVENT.register((player, level, hand, entity, hitResult) ->
-                                        player instanceof ServerPlayer serverPlayer && !interactionGuard(serverPlayer, false)
-                                                        ? InteractionResult.FAIL
-                                                        : InteractionResult.PASS);
+                                        player instanceof ServerPlayerEntity serverPlayer && !interactionGuard(serverPlayer, false)
+                                                        ? ActionResult.FAIL
+                                                        : ActionResult.PASS);
                         UseEntityCallback.EVENT.register((player, level, hand, entity, hitResult) ->
-                                        player instanceof ServerPlayer serverPlayer && !interactionGuard(serverPlayer, false)
-                                                        ? InteractionResult.FAIL
-                                                        : InteractionResult.PASS);
+                                        player instanceof ServerPlayerEntity serverPlayer && !interactionGuard(serverPlayer, false)
+                                                        ? ActionResult.FAIL
+                                                        : ActionResult.PASS);
                 }
 
                 // --- 7. Chat guard ----------------------------------------------------------
@@ -298,9 +305,9 @@ public final class SecureAuth implements ModInitializer {
         }
 
         /** Best-effort IP string for security logs (never blank). */
-        private static String safeIp(ServerPlayer player) {
+        private static String safeIp(ServerPlayerEntity player) {
                 try {
-                        String ip = player.getIpAddress();
+                        String ip = player.getIp();
                         return ip == null ? "unknown" : ip;
                 } catch (RuntimeException e) {
                         return "unknown";
@@ -308,7 +315,7 @@ public final class SecureAuth implements ModInitializer {
         }
 
         /** True when the interaction may proceed; sends throttled feedback otherwise. */
-        private boolean interactionGuard(ServerPlayer player, boolean isBreak) {
+        private boolean interactionGuard(ServerPlayerEntity player, boolean isBreak) {
                 AuthManager manager = authManager();
                 if (manager == null) {
                         return true;
@@ -331,7 +338,7 @@ public final class SecureAuth implements ModInitializer {
         }
 
         /** Sends a throttled (max 1 per 3 seconds) "blocked" notice. Returns true when sent. */
-        private boolean blockedNotice(AuthManager manager, ServerPlayer player, String key) {
+        private boolean blockedNotice(AuthManager manager, ServerPlayerEntity player, String key) {
                 AuthSession session = manager.session(player);
                 if (session == null) {
                         return false;
@@ -414,7 +421,7 @@ public final class SecureAuth implements ModInitializer {
                                 && config.worldProtection.resetOnRestart)) {
                         return;
                 }
-                Path dimDir = server.getWorldPath(LevelResource.ROOT)
+                Path dimDir = server.getSavePath(WorldSavePath.ROOT)
                                 .resolve("dimensions").resolve("secureauth").resolve("auth");
                 int removed = 0;
                 int failed = 0;
