@@ -35,20 +35,26 @@ public final class RateLimiter {
 		if (key == null) {
 			key = "unknown";
 		}
-		Bucket bucket = buckets.computeIfAbsent(key, k -> new Bucket());
-		synchronized (bucket) {
+		boolean[] acquired = { false };
+		buckets.compute(key, (ignored, bucket) -> {
 			long now = clock.nowMillis();
-			double elapsedSeconds = (now - bucket.lastRefill) / 1000.0;
-			if (elapsedSeconds > 0) {
-				bucket.tokens = Math.min(burst, bucket.tokens + elapsedSeconds * permitsPerSecond);
-				bucket.lastRefill = now;
+			if (bucket == null) {
+				bucket = new Bucket(now);
 			}
-			if (bucket.tokens >= 1.0) {
-				bucket.tokens -= 1.0;
-				return true;
+			synchronized (bucket) {
+				double elapsedSeconds = (now - bucket.lastRefill) / 1000.0;
+				if (elapsedSeconds > 0) {
+					bucket.tokens = Math.min(burst, bucket.tokens + elapsedSeconds * permitsPerSecond);
+					bucket.lastRefill = now;
+				}
+				if (bucket.tokens >= 1.0) {
+					bucket.tokens -= 1.0;
+					acquired[0] = true;
+				}
 			}
-			return false;
-		}
+			return bucket;
+		});
+		return acquired[0];
 	}
 
 	/** Seconds until a permit becomes available for {@code key} (0 if available now). */
@@ -72,12 +78,13 @@ public final class RateLimiter {
 	/** Drops buckets that have been idle for a long time to prevent memory leaks. */
 	public void cleanup(long idleMillis) {
 		long threshold = clock.nowMillis() - idleMillis;
-		buckets.entrySet().removeIf(entry -> {
-			Bucket bucket = entry.getValue();
-			synchronized (bucket) {
-				return bucket.lastRefill < threshold;
-			}
-		});
+		for (String key : buckets.keySet()) {
+			buckets.computeIfPresent(key, (ignored, bucket) -> {
+				synchronized (bucket) {
+					return bucket.lastRefill < threshold ? null : bucket;
+				}
+			});
+		}
 	}
 
 	public int trackedKeys() {
@@ -88,9 +95,8 @@ public final class RateLimiter {
 		double tokens;
 		long lastRefill;
 
-		Bucket() {
-			this.tokens = 0;
-			this.lastRefill = System.currentTimeMillis();
+		Bucket(long nowMillis) {
+			this.lastRefill = nowMillis;
 			// Start with one permit so the very first action is always allowed
 			// (the caller decides how many initial actions are acceptable).
 			this.tokens = 1.0;

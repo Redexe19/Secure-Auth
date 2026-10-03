@@ -4,14 +4,15 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.CustomSpawner;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.dimension.LevelStem;
-import net.minecraft.world.level.storage.LevelStorageSource;
-import net.minecraft.world.level.storage.ServerLevelData;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.math.random.RandomSequencesState;
+import net.minecraft.world.World;
+import net.minecraft.world.dimension.DimensionOptions;
+import net.minecraft.world.level.ServerWorldProperties;
+import net.minecraft.world.level.storage.LevelStorage;
+import net.minecraft.world.spawner.SpecialSpawner;
 import net.secureauth.SecureAuth;
 import net.secureauth.world.AuthWorldManager;
 import org.slf4j.Logger;
@@ -55,19 +56,14 @@ public abstract class MinecraftServerMixin {
         private static final Logger SECUREAUTH_LOG = LoggerFactory.getLogger("secureauth");
 
         @WrapOperation(
-                        method = "createLevels",
+                        method = "createWorlds",
                         at = @At(value = "NEW",
-                                        target = "(Lnet/minecraft/server/MinecraftServer;Ljava/util/concurrent/Executor;"
-                                                        + "Lnet/minecraft/world/level/storage/LevelStorageSource$LevelStorageAccess;"
-                                                        + "Lnet/minecraft/world/level/storage/ServerLevelData;"
-                                                        + "Lnet/minecraft/resources/ResourceKey;"
-                                                        + "Lnet/minecraft/world/level/dimension/LevelStem;ZJ"
-                                                        + "Ljava/util/List;Z)Lnet/minecraft/server/level/ServerLevel;"))
-        private ServerLevel secureauth$reseedAuthDimension(MinecraftServer server, Executor executor,
-                        LevelStorageSource.LevelStorageAccess access, ServerLevelData levelData,
-                        ResourceKey<Level> dimension, LevelStem stem, boolean debugWorld, long seed,
-                        List<CustomSpawner> customSpawners, boolean tickTime,
-                        Operation<ServerLevel> original) {
+                                        target = "(Lnet/minecraft/server/MinecraftServer;Ljava/util/concurrent/Executor;Lnet/minecraft/world/level/storage/LevelStorage$Session;Lnet/minecraft/world/level/ServerWorldProperties;Lnet/minecraft/registry/RegistryKey;Lnet/minecraft/world/dimension/DimensionOptions;ZJLjava/util/List;ZLnet/minecraft/util/math/random/RandomSequencesState;)Lnet/minecraft/server/world/ServerWorld;"))
+        private ServerWorld secureauth$reseedAuthDimension(MinecraftServer server, Executor executor,
+                        LevelStorage.Session access, ServerWorldProperties levelData,
+                        RegistryKey<World> dimension, DimensionOptions stem, boolean debugWorld, long seed,
+                        List<SpecialSpawner> customSpawners, boolean tickTime, RandomSequencesState randomSequences,
+                        Operation<ServerWorld> original) {
                 try {
                         SecureAuth mod = SecureAuth.get();
                         if (mod != null && mod.enabled()
@@ -78,12 +74,12 @@ public abstract class MinecraftServerMixin {
                                                 + "seed ({}) — uncorrelated with the overworld, nether and end, "
                                                 + "and different on every server restart.", freshSeed);
                                 return original.call(server, executor, access, levelData, dimension, stem,
-                                                debugWorld, freshSeed, customSpawners, tickTime);
+                                                debugWorld, freshSeed, customSpawners, tickTime, randomSequences);
                         }
                 } catch (Throwable t) {
                         SECUREAUTH_LOG.debug("SecureAuth re-seed wrap error; keeping the original seed", t);
                 }
                 return original.call(server, executor, access, levelData, dimension, stem,
-                                debugWorld, seed, customSpawners, tickTime);
+                                debugWorld, seed, customSpawners, tickTime, randomSequences);
         }
 }

@@ -3,9 +3,9 @@ package net.secureauth.auth;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
+import net.minecraft.network.packet.s2c.play.OverlayMessageS2CPacket;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.secureauth.account.Account;
 import net.secureauth.account.AccountRepository;
 import net.secureauth.account.StoreException;
@@ -109,15 +109,15 @@ public final class AuthManager {
          * The live session of a connected player, or {@code null}. Every caller must
          * treat {@code null} as "unauthenticated" (fail closed) — never as "allowed".
          */
-        public AuthSession session(ServerPlayer player) {
+        public AuthSession session(ServerPlayerEntity player) {
                 if (player == null) {
                         return null;
                 }
-                return sessions.get(player.getUUID());
+                return sessions.get(player.getUuid());
         }
 
         /** Server-authoritative authentication state (a missing session is NOT authenticated). */
-        public boolean isAuthenticated(ServerPlayer player) {
+        public boolean isAuthenticated(ServerPlayerEntity player) {
                 AuthSession session = session(player);
                 return session != null && session.authenticated();
         }
@@ -132,13 +132,13 @@ public final class AuthManager {
          * session resume matches (same UUID, same IP, inside the persist window),
          * the join is auto-authenticated instead and no quarantine happens.
          */
-        public void onJoin(ServerPlayer player) {
+        public void onJoin(ServerPlayerEntity player) {
                 if (player == null) {
                         return;
                 }
                 String usernameDisplay = player.getGameProfile().name();
                 String usernameNorm = AccountRepository.normalize(usernameDisplay);
-                String ip = player.getIpAddress() == null ? "unknown" : player.getIpAddress();
+                String ip = player.getIp() == null ? "unknown" : player.getIp();
                 long now = System.currentTimeMillis();
 
                 // 1. Per-IP join limiter — before anything else.
@@ -167,12 +167,12 @@ public final class AuthManager {
                 // 3. Server-side session resume (same-IP quick re-login, 12 h window by default).
                 if (resume.enabled() && session.account != null && !session.account.locked()
                                 && !session.account.inTemporaryLockout(now)
-                                && resume.matches(player.getUUID(), usernameNorm, ip)) {
+                                && resume.matches(player.getUuid(), usernameNorm, ip)) {
                         // The auth-time game type is read BEFORE the record is consumed:
                         // the ability reconciliation needs it as the game-type source
                         // for resumed sessions (they carry no quarantine snapshot).
-                        session.resumedGameMode = resume.lastGameMode(player.getUUID());
-                        resume.consume(player.getUUID());
+                        session.resumedGameMode = resume.lastGameMode(player.getUuid());
+                        resume.consume(player.getUuid());
                         try {
                                 repository.recordLoginSuccess(session.account.id());
                         } catch (StoreException e) {
@@ -181,7 +181,7 @@ public final class AuthManager {
                         }
                         session.state = AuthState.AUTHENTICATED;
                         session.authAtMs = now;
-                        sessions.put(player.getUUID(), session);
+                        sessions.put(player.getUuid(), session);
                         // 1.2.4 self-heal: a trusted rejoin whose save data still points INTO
                         // the auth dimension (the player disconnected while a release was
                         // still pending — e.g. a laggy server ate the transfer) used to spawn
@@ -202,7 +202,7 @@ public final class AuthManager {
                 }
 
                 session.deadline = now + config.authentication.timeoutSeconds * 1000L;
-                sessions.put(player.getUUID(), session);
+                sessions.put(player.getUuid(), session);
 
                 // 4. Physical quarantine (dimension or freeze-in-place fallback).
                 worldManager.quarantine(player, session);
@@ -222,28 +222,28 @@ public final class AuthManager {
          * disconnect records a real-world position — otherwise their next join
          * would spawn them inside the auth void.
          */
-        public void onDisconnect(ServerPlayer player) {
+        public void onDisconnect(ServerPlayerEntity player) {
                 if (player == null) {
                         return;
                 }
-                AuthSession session = sessions.get(player.getUUID());
+                AuthSession session = sessions.get(player.getUuid());
                 if (session != null) {
                         if (session.authenticated()) {
                                 // Remember the identity for the session-resume window (12 h default).
                                 // The game type handed over is the AUTH-TIME truth — never the live
                                 // value, which a missed restore could have left at the sandbox's
                                 // adventure (a rejoin would then "remember" the poison as truth).
-                                net.minecraft.world.level.GameType truth = session.resumedGameMode;
+                                net.minecraft.world.GameMode truth = session.resumedGameMode;
                                 if (truth == null) {
-                                        truth = player.gameMode.getGameModeForPlayer();
+                                        truth = player.interactionManager.getGameMode();
                                 }
-                                resume.recordAuthenticated(player.getUUID(), session.usernameNorm, session.ip, truth);
+                                resume.recordAuthenticated(player.getUuid(), session.usernameNorm, session.ip, truth);
                                 // 1.2.4: an authenticated player who is STILL inside the auth
                                 // dimension at disconnect (a laggy server ate the release
                                 // transfer) gets the same pre-save position repair as the
                                 // unauthenticated — their save data must never record the
                                 // auth dimension as the place to spawn the next join.
-                                if (player.level().dimension() == AuthWorldManager.AUTH_DIMENSION) {
+                                if (player.getEntityWorld().getRegistryKey() == AuthWorldManager.AUTH_DIMENSION) {
                                         try {
                                                 worldManager.restoreOnDisconnect(player, session);
                                         } catch (RuntimeException ignored) {
@@ -259,20 +259,20 @@ public final class AuthManager {
                                 }
                         }
                 }
-                tracker.clear(player.getUUID());
-                sessions.remove(player.getUUID());
+                tracker.clear(player.getUuid());
+                sessions.remove(player.getUuid());
         }
 
         /**
-         * Re-binds the session to the new {@link ServerPlayer} entity created by a
+         * Re-binds the session to the new {@link ServerPlayerEntity} entity created by a
          * respawn. The unauthenticated are re-quarantined (a respawn would otherwise
          * place them into the real world); the authenticated simply continue.
          */
-        public void onRespawn(ServerPlayer oldPlayer, ServerPlayer newPlayer) {
+        public void onRespawn(ServerPlayerEntity oldPlayer, ServerPlayerEntity newPlayer) {
                 if (newPlayer == null) {
                         return;
                 }
-                AuthSession previous = sessions.get(newPlayer.getUUID());
+                AuthSession previous = sessions.get(newPlayer.getUuid());
                 if (previous == null) {
                         return;
                 }
@@ -284,7 +284,7 @@ public final class AuthManager {
                 session.lastTimeoutWarningAt = previous.lastTimeoutWarningAt;
                 session.authAtMs = previous.authAtMs;
                 session.openPanel = null;
-                sessions.put(newPlayer.getUUID(), session);
+                sessions.put(newPlayer.getUuid(), session);
 
                 if (!session.authenticated()) {
                         worldManager.quarantine(newPlayer, session);
@@ -319,9 +319,9 @@ public final class AuthManager {
                                         // below (drift, escape, release watchdog) would act on a
                                         // ghost. The connection's public player field is the one
                                         // reference vanilla itself keeps up to date.
-                                        ServerPlayer live = session.player;
+                                        ServerPlayerEntity live = session.player;
                                         try {
-                                                ServerPlayer viaConnection = live.connection.player;
+                                                ServerPlayerEntity viaConnection = live.networkHandler.player;
                                                 if (viaConnection != null && !viaConnection.isRemoved()) {
                                                         live = viaConnection;
                                                 }
@@ -329,7 +329,7 @@ public final class AuthManager {
                                                 // Fall back to the player list below.
                                         }
                                         if (live == null || live.isRemoved()) {
-                                                live = server.getPlayerList().getPlayer(session.player.getUUID());
+                                                live = server.getPlayerManager().getPlayer(session.player.getUuid());
                                         }
                                         if (live != null && live != session.player) {
                                                 session.player = live;
@@ -363,8 +363,8 @@ public final class AuthManager {
                                                         || now - session.authAtMs < watchdogSeconds * 1000L) {
                                                 continue;
                                         }
-                                        ServerPlayer player = session.player;
-                                        if (player.level().dimension() != AuthWorldManager.AUTH_DIMENSION) {
+                                        ServerPlayerEntity player = session.player;
+                                        if (player.getEntityWorld().getRegistryKey() != AuthWorldManager.AUTH_DIMENSION) {
                                                 continue;
                                         }
                                         boolean rescued = false;
@@ -408,8 +408,8 @@ public final class AuthManager {
                                 if (!session.authenticated() || session.abilitiesReconciled) {
                                         continue;
                                 }
-                                ServerPlayer player = session.player;
-                                if (player == null || player.level().dimension() == AuthWorldManager.AUTH_DIMENSION) {
+                                ServerPlayerEntity player = session.player;
+                                if (player == null || player.getEntityWorld().getRegistryKey() == AuthWorldManager.AUTH_DIMENSION) {
                                         // Still inside: the release watchdog owns that case.
                                         continue;
                                 }
@@ -434,7 +434,7 @@ public final class AuthManager {
                                         continue;
                                 }
                                 if (now >= session.deadline) {
-                                        if (sessions.remove(session.player.getUUID(), session)) {
+                                        if (sessions.remove(session.player.getUuid(), session)) {
                                                 logger.log(SecurityEvent.AUTH_TIMEOUT, session.usernameNorm, session.ip);
                                         }
                                         // Teleport back to the original location before the kick, so the
@@ -495,7 +495,7 @@ public final class AuthManager {
                 if (session == null) {
                         return;
                 }
-                ServerPlayer player = session.player;
+                ServerPlayerEntity player = session.player;
                 if (session.authenticated()) {
                         sendTranslated(player, "auth.alreadyAuthenticated");
                         return;
@@ -518,7 +518,7 @@ public final class AuthManager {
                 if (session == null) {
                         return;
                 }
-                ServerPlayer player = session.player;
+                ServerPlayerEntity player = session.player;
                 if (session.authenticated()) {
                         sendTranslated(player, "auth.register.notAllowed");
                         return;
@@ -526,9 +526,9 @@ public final class AuthManager {
 
                 // Per-session cooldown: registration hashes with Argon2id, so rapid retries
                 // must not be able to turn into a CPU denial of service.
-                if (!tracker.tryBeginAttempt(player.getUUID())) {
+                if (!tracker.tryBeginAttempt(player.getUuid())) {
                         feedback(session, "auth.login.cooldown",
-                                        tracker.cooldownRemainingSeconds(player.getUUID()));
+                                        tracker.cooldownRemainingSeconds(player.getUuid()));
                         return;
                 }
 
@@ -551,7 +551,7 @@ public final class AuthManager {
         }
 
         /** Logs an authenticated player out and returns them to the auth sandbox. */
-        public void logout(ServerPlayer player) {
+        public void logout(ServerPlayerEntity player) {
                 if (player == null) {
                         return;
                 }
@@ -562,7 +562,7 @@ public final class AuthManager {
                 }
 
                 // A manual logout must never be auto-resumed by the session window.
-                resume.invalidate(player.getUUID());
+                resume.invalidate(player.getUuid());
 
                 // Fresh deadline so the timeout applies to the re-authentication too.
                 session.state = AuthState.REGISTERED_NOT_AUTHENTICATED;
@@ -582,7 +582,7 @@ public final class AuthManager {
                 if (session == null) {
                         return;
                 }
-                ServerPlayer player = session.player;
+                ServerPlayerEntity player = session.player;
                 if (!session.authenticated()) {
                         sendTranslated(player, "auth.notAuthenticated");
                         return;
@@ -623,7 +623,7 @@ public final class AuthManager {
                                 // The password WAS changed; only the cache refresh failed.
                         }
                         // A changed credential invalidates any live session-resume window.
-                        resume.invalidate(player.getUUID());
+                        resume.invalidate(player.getUuid());
                         logger.log(SecurityEvent.PASSWORD_CHANGED, session.usernameNorm, session.ip);
                         sendTranslated(player, "auth.changepassword.success");
                 } catch (StoreException e) {
@@ -637,7 +637,7 @@ public final class AuthManager {
                 if (session == null) {
                         return;
                 }
-                ServerPlayer player = session.player;
+                ServerPlayerEntity player = session.player;
                 if (!session.authenticated()) {
                         sendTranslated(player, "auth.notAuthenticated");
                         return;
@@ -669,8 +669,8 @@ public final class AuthManager {
                 session.state = AuthState.UNREGISTERED;
                 session.deadline = System.currentTimeMillis() + config.authentication.timeoutSeconds * 1000L;
                 session.lastTimeoutWarningAt = 0L;
-                tracker.clear(player.getUUID());
-                resume.invalidate(player.getUUID());
+                tracker.clear(player.getUuid());
+                resume.invalidate(player.getUuid());
                 worldManager.quarantine(player, session);
                 applyIsolation(session);
                 sendAuthPrompt(session);
@@ -690,11 +690,11 @@ public final class AuthManager {
          * rendered as empty strings, never as the encoder-breaking null that
          * used to kill the {@code system_chat} packet.
          */
-        public void sendTranslated(ServerPlayer player, String key, Object... args) {
+        public void sendTranslated(ServerPlayerEntity player, String key, Object... args) {
                 if (player == null || key == null) {
                         return;
                 }
-                PacketBypass.run(() -> player.sendSystemMessage(Lang.comp(player, key, args), false));
+                PacketBypass.run(() -> player.sendMessageToClient(Lang.comp(player, key, args), false));
         }
 
         /**
@@ -706,7 +706,7 @@ public final class AuthManager {
                 if (session == null) {
                         return;
                 }
-                ServerPlayer player = session.player;
+                ServerPlayerEntity player = session.player;
 
                 // Chat prompt for everyone.
                 if (session.state == AuthState.LOCKED && session.account != null) {
@@ -743,7 +743,7 @@ public final class AuthManager {
 
         /** Full post-authentication flow: restore world, restore info, feedback, panel close. */
         private void onAuthSuccess(AuthSession session, String messageKey, String messageArg) {
-                ServerPlayer player = session.player;
+                ServerPlayerEntity player = session.player;
                 session.state = AuthState.AUTHENTICATED;
                 // The release watchdog starts here: if the dimension transfer below
                 // fails under lag, the player is auto-rescued 5 seconds later.
@@ -758,7 +758,7 @@ public final class AuthManager {
                 // a stale entity (the live one keeps the residue; the reconciliation then
                 // has this remembered value to repair it against).
                 try {
-                        session.resumedGameMode = player.gameMode.getGameModeForPlayer();
+                        session.resumedGameMode = player.interactionManager.getGameMode();
                 } catch (RuntimeException ignored) {
                         // Reading the game type is best-effort; the snapshot still covers it.
                 }
@@ -768,7 +768,7 @@ public final class AuthManager {
                 // listed tab entries (previously unlisted → "empty tab until
                 // rejoin"), any scoreboard objectives created meanwhile, and the
                 // full data of carried maps.
-                MinecraftServer server = player.level().getServer();
+                MinecraftServer server = player.getEntityWorld().getServer();
                 if (server != null) {
                         packetFilter.restoreOtherPlayers(player, server);
                         packetFilter.restoreScoreboard(player, server);
@@ -810,7 +810,7 @@ public final class AuthManager {
          * the chest panel and real conversation.
          */
         private void sendAuthActionBar(AuthSession session, long now) {
-                ServerPlayer player = session.player;
+                ServerPlayerEntity player = session.player;
                 if (player == null) {
                         return;
                 }
@@ -834,19 +834,19 @@ public final class AuthManager {
         }
 
         /** Sends a resolved literal action-bar line (no custom packets, unmodified clients render it). */
-        private void sendActionBar(ServerPlayer player, String key, Object... args) {
+        private void sendActionBar(ServerPlayerEntity player, String key, Object... args) {
                 try {
                         // Unbranded on purpose: the action bar sits above the hotbar where
                         // the [SecureAuth] prefix would only waste precious space.
-                        player.connection.send(new ClientboundSetActionBarTextPacket(Lang.plain(player, key, args)));
+                        player.networkHandler.sendPacket(new OverlayMessageS2CPacket(Lang.plain(player, key, args)));
                 } catch (RuntimeException ignored) {
                         // The action bar is cosmetic; it must never break the auth flow.
                 }
         }
 
         private void applyIsolation(AuthSession session) {
-                ServerPlayer player = session.player;
-                MinecraftServer server = player.level().getServer();
+                ServerPlayerEntity player = session.player;
+                MinecraftServer server = player.getEntityWorld().getServer();
                 if (server == null) {
                         return;
                 }

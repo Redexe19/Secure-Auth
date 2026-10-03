@@ -9,11 +9,9 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.permissions.Permission;
-import net.minecraft.server.permissions.PermissionLevel;
+import net.minecraft.server.command.CommandManager;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.secureauth.SecureAuth;
 import net.secureauth.account.Account;
 import net.secureauth.account.AccountRepository;
@@ -73,88 +71,88 @@ public final class AuthCommands {
          * Registers all SecureAuth commands into the server command dispatcher.
          * Called by {@code CommandRegistrationCallback} during server start.
          */
-        public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
                 registerUserCommands(dispatcher);
                 registerAdminCommands(dispatcher);
         }
 
-        private static void registerUserCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
+        private static void registerUserCommands(CommandDispatcher<ServerCommandSource> dispatcher) {
                 // /register <password> <confirm>
-                dispatcher.register(Commands.literal("register")
-                                .then(Commands.argument("password", StringArgumentType.word())
-                                                .then(Commands.argument("confirm", StringArgumentType.word())
+                dispatcher.register(CommandManager.literal("register")
+                                .then(CommandManager.argument("password", StringArgumentType.word())
+                                                .then(CommandManager.argument("confirm", StringArgumentType.word())
                                                                 .executes(context -> register(context.getSource(),
                                                                                 StringArgumentType.getString(context, "password"),
                                                                                 StringArgumentType.getString(context, "confirm"))))));
 
                 // /login <password>
-                dispatcher.register(Commands.literal("login")
-                                .then(Commands.argument("password", StringArgumentType.word())
+                dispatcher.register(CommandManager.literal("login")
+                                .then(CommandManager.argument("password", StringArgumentType.word())
                                                 .executes(context -> login(context.getSource(),
                                                                 StringArgumentType.getString(context, "password")))));
 
                 // /logout
-                dispatcher.register(Commands.literal("logout")
+                dispatcher.register(CommandManager.literal("logout")
                                 .executes(context -> logout(context.getSource())));
 
                 // /authpanel — the chest auth panel (vanilla clients see a chest menu)
-                dispatcher.register(Commands.literal("authpanel")
+                dispatcher.register(CommandManager.literal("authpanel")
                                 .executes(context -> openPanel(context.getSource())));
 
                 // /changepassword <oldPassword> <newPassword> <confirm>
-                dispatcher.register(Commands.literal("changepassword")
-                                .then(Commands.argument("oldPassword", StringArgumentType.word())
-                                                .then(Commands.argument("newPassword", StringArgumentType.word())
-                                                                .then(Commands.argument("confirm", StringArgumentType.word())
+                dispatcher.register(CommandManager.literal("changepassword")
+                                .then(CommandManager.argument("oldPassword", StringArgumentType.word())
+                                                .then(CommandManager.argument("newPassword", StringArgumentType.word())
+                                                                .then(CommandManager.argument("confirm", StringArgumentType.word())
                                                                                 .executes(context -> changePassword(context.getSource(),
                                                                                                 StringArgumentType.getString(context, "oldPassword"),
                                                                                                 StringArgumentType.getString(context, "newPassword"),
                                                                                                 StringArgumentType.getString(context, "confirm")))))));
 
                 // /unregister <password>
-                dispatcher.register(Commands.literal("unregister")
-                                .then(Commands.argument("password", StringArgumentType.word())
+                dispatcher.register(CommandManager.literal("unregister")
+                                .then(CommandManager.argument("password", StringArgumentType.word())
                                                 .executes(context -> unregister(context.getSource(),
                                                                 StringArgumentType.getString(context, "password")))));
         }
 
-        private static void registerAdminCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
-                dispatcher.register(Commands.literal("auth")
+        private static void registerAdminCommands(CommandDispatcher<ServerCommandSource> dispatcher) {
+                dispatcher.register(CommandManager.literal("auth")
                                 .executes(context -> adminUsage(context.getSource()))
-                                .then(Commands.literal("info")
-                                                .then(Commands.argument("player", StringArgumentType.word())
+                                .then(CommandManager.literal("info")
+                                                .then(CommandManager.argument("player", StringArgumentType.word())
                                                                 .executes(context -> adminInfo(context.getSource(),
                                                                                 StringArgumentType.getString(context, "player")))))
-                                .then(Commands.literal("reset")
-                                                .then(Commands.argument("player", StringArgumentType.word())
-                                                                .then(Commands.argument("newPassword", StringArgumentType.word())
+                                .then(CommandManager.literal("reset")
+                                                .then(CommandManager.argument("player", StringArgumentType.word())
+                                                                .then(CommandManager.argument("newPassword", StringArgumentType.word())
                                                                                 .executes(context -> adminReset(context.getSource(),
                                                                                                 StringArgumentType.getString(context, "player"),
                                                                                                 StringArgumentType.getString(context, "newPassword"))))))
-                                .then(Commands.literal("unregister")
-                                                .then(Commands.argument("player", StringArgumentType.word())
+                                .then(CommandManager.literal("unregister")
+                                                .then(CommandManager.argument("player", StringArgumentType.word())
                                                                 .executes(context -> adminUnregister(context.getSource(),
                                                                                 StringArgumentType.getString(context, "player")))))
-                                .then(Commands.literal("lock")
-                                                .then(Commands.argument("player", StringArgumentType.word())
+                                .then(CommandManager.literal("lock")
+                                                .then(CommandManager.argument("player", StringArgumentType.word())
                                                                 .executes(context -> adminLock(context.getSource(), true,
                                                                                 StringArgumentType.getString(context, "player")))))
-                                .then(Commands.literal("unlock")
-                                                .then(Commands.argument("player", StringArgumentType.word())
+                                .then(CommandManager.literal("unlock")
+                                                .then(CommandManager.argument("player", StringArgumentType.word())
                                                                 .executes(context -> adminLock(context.getSource(), false,
                                                                                 StringArgumentType.getString(context, "player")))))
-                                .then(Commands.literal("forcelogout")
-                                                .then(Commands.argument("player", StringArgumentType.word())
+                                .then(CommandManager.literal("forcelogout")
+                                                .then(CommandManager.argument("player", StringArgumentType.word())
                                                                 .executes(context -> adminForceLogout(context.getSource(),
                                                                                 StringArgumentType.getString(context, "player")))))
-                                .then(Commands.literal("panel")
+                                .then(CommandManager.literal("panel")
                                                 .executes(context -> adminPanel(context.getSource())))
-                                .then(Commands.literal("list")
+                                .then(CommandManager.literal("list")
                                                 .executes(context -> adminList(context.getSource(), 1))
-                                                .then(Commands.argument("page", IntegerArgumentType.integer(1))
+                                                .then(CommandManager.argument("page", IntegerArgumentType.integer(1))
                                                                 .executes(context -> adminList(context.getSource(),
                                                                                 IntegerArgumentType.getInteger(context, "page")))))
-                                .then(Commands.literal("reload")
+                                .then(CommandManager.literal("reload")
                                                 .executes(context -> adminReload(context.getSource()))));
         }
 
@@ -162,9 +160,9 @@ public final class AuthCommands {
         // User commands (pure forwarders into AuthManager)
         // ------------------------------------------------------------------
 
-        private static int register(CommandSourceStack source, String password, String confirmation) {
+        private static int register(ServerCommandSource source, String password, String confirmation) {
                 AuthManager manager = manager();
-                ServerPlayer player = source.getPlayer();
+                ServerPlayerEntity player = source.getPlayer();
                 if (manager == null || player == null) {
                         // Console or disabled mod: nobody can register from there.
                         return failure(source, "auth.notAuthenticated");
@@ -182,9 +180,9 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        private static int login(CommandSourceStack source, String password) {
+        private static int login(ServerCommandSource source, String password) {
                 AuthManager manager = manager();
-                ServerPlayer player = source.getPlayer();
+                ServerPlayerEntity player = source.getPlayer();
                 if (manager == null || player == null) {
                         return failure(source, "auth.notAuthenticated");
                 }
@@ -197,9 +195,9 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        private static int logout(CommandSourceStack source) {
+        private static int logout(ServerCommandSource source) {
                 AuthManager manager = manager();
-                ServerPlayer player = source.getPlayer();
+                ServerPlayerEntity player = source.getPlayer();
                 if (manager == null || player == null) {
                         return failure(source, "auth.notAuthenticated");
                 }
@@ -208,9 +206,9 @@ public final class AuthCommands {
         }
 
         /** Opens the chest auth panel — works on completely vanilla clients. */
-        private static int openPanel(CommandSourceStack source) {
+        private static int openPanel(ServerCommandSource source) {
                 AuthManager manager = manager();
-                ServerPlayer player = source.getPlayer();
+                ServerPlayerEntity player = source.getPlayer();
                 if (manager == null) {
                         return failure(source, "auth.storage.unavailable");
                 }
@@ -228,10 +226,10 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        private static int changePassword(CommandSourceStack source, String oldPassword, String newPassword,
+        private static int changePassword(ServerCommandSource source, String oldPassword, String newPassword,
                         String confirmation) {
                 AuthManager manager = manager();
-                ServerPlayer player = source.getPlayer();
+                ServerPlayerEntity player = source.getPlayer();
                 if (manager == null || player == null) {
                         return failure(source, "auth.notAuthenticated");
                 }
@@ -248,9 +246,9 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        private static int unregister(CommandSourceStack source, String password) {
+        private static int unregister(ServerCommandSource source, String password) {
                 AuthManager manager = manager();
-                ServerPlayer player = source.getPlayer();
+                ServerPlayerEntity player = source.getPlayer();
                 if (manager == null || player == null) {
                         return failure(source, "auth.notAuthenticated");
                 }
@@ -267,7 +265,7 @@ public final class AuthCommands {
         // /auth administration
         // ------------------------------------------------------------------
 
-        private static int adminUsage(CommandSourceStack source) {
+        private static int adminUsage(ServerCommandSource source) {
                 AuthManager manager = requireManager(source);
                 if (manager == null) {
                         return 0;
@@ -279,7 +277,7 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        private static int adminInfo(CommandSourceStack source, String name) {
+        private static int adminInfo(ServerCommandSource source, String name) {
                 AuthManager manager = requireManager(source);
                 if (manager == null) {
                         return 0;
@@ -310,7 +308,7 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        private static int adminReset(CommandSourceStack source, String name, String newPassword) {
+        private static int adminReset(ServerCommandSource source, String name, String newPassword) {
                 AuthManager manager = requireManager(source);
                 if (manager == null) {
                         return 0;
@@ -349,7 +347,7 @@ public final class AuthCommands {
                 }
                 // Drop the cached account of an online, still-unauthenticated target so the
                 // next attempt re-reads the fresh row (and the new hash) from the database.
-                ServerPlayer target = findOnline(source, name);
+                ServerPlayerEntity target = findOnline(source, name);
                 if (target != null) {
                         AuthSession session = manager.session(target);
                         if (session != null && !session.authenticated()) {
@@ -362,7 +360,7 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        private static int adminUnregister(CommandSourceStack source, String name) {
+        private static int adminUnregister(ServerCommandSource source, String name) {
                 AuthManager manager = requireManager(source);
                 if (manager == null) {
                         return 0;
@@ -374,7 +372,7 @@ public final class AuthCommands {
                 if (account == null) {
                         return 0;
                 }
-                ServerPlayer target = findOnline(source, name);
+                ServerPlayerEntity target = findOnline(source, name);
                 AuthSession session = target != null ? manager.session(target) : null;
                 // A currently playing target is sent back to the sandbox first, so account
                 // deletion can never leave an unauthenticated player in the real world.
@@ -404,7 +402,7 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        private static int adminLock(CommandSourceStack source, boolean lock, String name) {
+        private static int adminLock(ServerCommandSource source, boolean lock, String name) {
                 AuthManager manager = requireManager(source);
                 if (manager == null) {
                         return 0;
@@ -427,7 +425,7 @@ public final class AuthCommands {
                 account.setLockoutUntil(0);
                 account.setFailedAttempts(0);
 
-                ServerPlayer target = findOnline(source, name);
+                ServerPlayerEntity target = findOnline(source, name);
                 AuthSession session = target != null ? manager.session(target) : null;
                 if (session != null) {
                         if (session.account != null) {
@@ -449,7 +447,7 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        private static int adminForceLogout(CommandSourceStack source, String name) {
+        private static int adminForceLogout(ServerCommandSource source, String name) {
                 AuthManager manager = requireManager(source);
                 if (manager == null) {
                         return 0;
@@ -457,7 +455,7 @@ public final class AuthCommands {
                 if (!requireAdmin(source, manager)) {
                         return 0;
                 }
-                ServerPlayer target = findOnline(source, name);
+                ServerPlayerEntity target = findOnline(source, name);
                 if (target == null) {
                         // No dedicated "player offline" key exists; the unknown-account reply is
                         // the closest generic feedback this mod ships.
@@ -481,7 +479,7 @@ public final class AuthCommands {
         }
 
         /** /auth panel — the admin chest GUI over the live session table. */
-        private static int adminPanel(CommandSourceStack source) {
+        private static int adminPanel(ServerCommandSource source) {
                 AuthManager manager = requireManager(source);
                 if (manager == null) {
                         return 0;
@@ -493,7 +491,7 @@ public final class AuthCommands {
                         reply(source, manager, "auth.admin.panel.disabled");
                         return 0;
                 }
-                ServerPlayer player = source.getPlayer();
+                ServerPlayerEntity player = source.getPlayer();
                 if (player == null) {
                         // The chest GUI needs a viewer; console admins use the chat subcommands.
                         reply(source, manager, "auth.admin.panel.console");
@@ -503,7 +501,7 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        private static int adminList(CommandSourceStack source, int page) {
+        private static int adminList(ServerCommandSource source, int page) {
                 AuthManager manager = requireManager(source);
                 if (manager == null) {
                         return 0;
@@ -533,7 +531,7 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        private static int adminReload(CommandSourceStack source) {
+        private static int adminReload(ServerCommandSource source) {
                 AuthManager manager = requireManager(source);
                 if (manager == null) {
                         return 0;
@@ -566,10 +564,10 @@ public final class AuthCommands {
         }
 
         /** Resolves the manager or replies with a generic failure (never returns silently). */
-        private static AuthManager requireManager(CommandSourceStack source) {
+        private static AuthManager requireManager(ServerCommandSource source) {
                 AuthManager manager = manager();
                 if (manager == null) {
-                        source.sendFailure(Lang.compForConsole("auth.storage.unavailable"));
+                        source.sendError(Lang.compForConsole("auth.storage.unavailable"));
                 }
                 return manager;
         }
@@ -580,11 +578,11 @@ public final class AuthCommands {
          * {@code auth.admin.permission} and returns false when the gate fails —
          * or when the permission subsystem itself misbehaves (fail closed).
          */
-        private static boolean requireAdmin(CommandSourceStack source, AuthManager manager) {
+        private static boolean requireAdmin(ServerCommandSource source, AuthManager manager) {
                 int level = Math.min(4, Math.max(1, manager.config().administration.adminOpLevel));
                 boolean allowed;
                 try {
-                        allowed = source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.byId(level)));
+                        allowed = source.hasPermissionLevel(level);
                 } catch (RuntimeException e) {
                         allowed = false;
                 }
@@ -600,17 +598,17 @@ public final class AuthCommands {
          * pre-auth packet filter) when the administrator is a player, and as a
          * plain system message when it is the console.
          */
-        private static void reply(CommandSourceStack source, AuthManager manager, String key, Object... args) {
-                ServerPlayer player = source.getPlayer();
+        private static void reply(ServerCommandSource source, AuthManager manager, String key, Object... args) {
+                ServerPlayerEntity player = source.getPlayer();
                 if (player != null) {
                         manager.sendTranslated(player, key, args);
                         return;
                 }
-                source.sendSystemMessage(Lang.compForConsole(key, args));
+                source.sendMessage(Lang.compForConsole(key, args));
         }
 
-        private static int failure(CommandSourceStack source, String key) {
-                source.sendFailure(Lang.compForConsole(key));
+        private static int failure(ServerCommandSource source, String key) {
+                source.sendError(Lang.compForConsole(key));
                 return 0;
         }
 
@@ -619,7 +617,7 @@ public final class AuthCommands {
          * {@code auth.admin.unknownPlayer} (or a storage failure) and returns
          * {@code null} when the account cannot be resolved.
          */
-        private static Account lookupAccount(CommandSourceStack source, AuthManager manager, String name) {
+        private static Account lookupAccount(ServerCommandSource source, AuthManager manager, String name) {
                 Account account;
                 try {
                         account = manager.repository().findByUsernameNorm(AccountRepository.normalize(name)).orElse(null);
@@ -644,16 +642,16 @@ public final class AuthCommands {
          * security log AND the server log, while the player-facing message stays
          * generic on purpose.
          */
-        private static void logStoreFailure(CommandSourceStack source, AuthManager manager, String operation,
+        private static void logStoreFailure(ServerCommandSource source, AuthManager manager, String operation,
                         StoreException e) {
                 manager.logger().log(SecurityEvent.DATABASE_UNAVAILABLE, actorName(source), null, actorIp(source),
                                 operation + ":" + net.secureauth.account.StoreException.describe(e));
         }
 
         /** Finds an online player by name, case-insensitively; {@code null} when offline. */
-        private static ServerPlayer findOnline(CommandSourceStack source, String name) {
+        private static ServerPlayerEntity findOnline(ServerCommandSource source, String name) {
                 String norm = AccountRepository.normalize(name);
-                for (ServerPlayer online : source.getServer().getPlayerList().getPlayers()) {
+                for (ServerPlayerEntity online : source.getServer().getPlayerManager().getPlayerList()) {
                         if (AccountRepository.normalize(online.getGameProfile().name()).equals(norm)) {
                                 return online;
                         }
@@ -661,22 +659,22 @@ public final class AuthCommands {
                 return null;
         }
 
-        private static String actorName(CommandSourceStack source) {
+        private static String actorName(ServerCommandSource source) {
                 try {
-                        return source.getTextName();
+                        return source.getName();
                 } catch (RuntimeException e) {
                         return "unknown";
                 }
         }
 
         /** IP of the command source, or {@code null} for the console (blank fields are skipped by the logger). */
-        private static String actorIp(CommandSourceStack source) {
-                ServerPlayer player = source.getPlayer();
+        private static String actorIp(ServerCommandSource source) {
+                ServerPlayerEntity player = source.getPlayer();
                 if (player == null) {
                         return null;
                 }
                 try {
-                        return player.getIpAddress();
+                        return player.getIp();
                 } catch (RuntimeException e) {
                         return null;
                 }

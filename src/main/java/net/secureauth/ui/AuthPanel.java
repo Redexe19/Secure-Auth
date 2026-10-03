@@ -1,16 +1,16 @@
 package net.secureauth.ui;
 
-import net.minecraft.ChatFormatting;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.MenuProvider;
-import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.ResolvableProfile;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.ProfileComponent;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.screen.NamedScreenHandlerFactory;
+import net.minecraft.screen.ScreenHandlerType;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.secureauth.auth.AuthManager;
 import net.secureauth.auth.AuthSession;
 import net.secureauth.auth.AuthState;
@@ -43,31 +43,32 @@ public final class AuthPanel extends ChestGui {
         private static final int SLOT_LOCKED = 13;
         private static final int SLOT_REGISTER = 15;
         private static final int SLOT_DEADLINE = 22;
+        private static final int SLOT_PASSWORD_SAFETY = 26;
 
         private final AuthManager manager;
         private final AuthSession session;
 
-        private AuthPanel(int containerId, Inventory playerInventory, AuthManager manager, AuthSession session) {
-                super(MenuType.GENERIC_9x3, containerId, playerInventory, 3, session.player);
+        private AuthPanel(int containerId, PlayerInventory playerInventory, AuthManager manager, AuthSession session) {
+                super(ScreenHandlerType.GENERIC_9X3, containerId, playerInventory, 3, session.player);
                 this.manager = manager;
                 this.session = session;
         }
 
         /** Opens the panel for the session's player. */
         public static void open(AuthManager manager, AuthSession session) {
-                ServerPlayer player = session.player;
+                ServerPlayerEntity player = session.player;
                 session.openPanel = null;
-                player.openMenu(new MenuProvider() {
+                player.openHandledScreen(new NamedScreenHandlerFactory() {
                         @Override
-                        public Component getDisplayName() {
+                        public Text getDisplayName() {
                                 // Literal, server-resolved: vanilla clients would show the raw
                                 // key for a translatable title.
                                 return Lang.plain(player, "auth.panel.title");
                         }
 
                         @Override
-                        public net.minecraft.world.inventory.AbstractContainerMenu createMenu(
-                                        int containerId, Inventory inventory, Player viewer) {
+                        public net.minecraft.screen.ScreenHandler createMenu(
+                                        int containerId, PlayerInventory inventory, PlayerEntity viewer) {
                                 AuthPanel panel = new AuthPanel(containerId, inventory, manager, session);
                                 panel.build();
                                 session.openPanel = panel;
@@ -87,8 +88,8 @@ public final class AuthPanel extends ChestGui {
 
         /** Closes the panel if open (called when authentication succeeds). */
         public static void close(AuthSession session) {
-                if (session.openPanel != null && session.player.containerMenu == session.openPanel) {
-                        session.player.closeContainer();
+                if (session.openPanel != null && session.player.currentScreenHandler == session.openPanel) {
+                        session.player.closeHandledScreen();
                 }
                 session.openPanel = null;
         }
@@ -100,7 +101,7 @@ public final class AuthPanel extends ChestGui {
                 boolean locked = session.state == AuthState.LOCKED;
 
                 // --- Head: the account status card ------------------------------------
-                Component stateName;
+                Text stateName;
                 if (session.authenticated()) {
                         stateName = Lang.plain(session.player, "auth.panel.status.authenticated");
                 } else if (locked && session.account != null && session.account.locked()) {
@@ -115,20 +116,20 @@ public final class AuthPanel extends ChestGui {
                 ItemStack head = named(Items.PLAYER_HEAD, Lang.plain(session.player, "auth.panel.head.name"),
                                 lore(
                                                 Lang.plain(session.player, "auth.panel.head.player")
-                                                                .append(Component.literal(session.usernameDisplay)
-                                                                                .withStyle(ChatFormatting.WHITE)),
+                                                                .append(Text.literal(session.usernameDisplay)
+                                                                                .formatted(Formatting.WHITE)),
                                                 Lang.plain(session.player, "auth.panel.head.state").append(stateName),
                                                 line("auth.panel.head.attempts",
                                                                 Math.max(0, maxAttempts
                                                                                 - (session.account == null ? 0
                                                                                                 : session.account.failedAttempts())))));
-                head.set(DataComponents.PROFILE, ResolvableProfile.createResolved(session.player.getGameProfile()));
+                head.set(DataComponentTypes.PROFILE, ProfileComponent.ofStatic(session.player.getGameProfile()));
                 set(SLOT_HEAD, head);
 
                 // --- Login / register action items -------------------------------------
                 if (session.authenticated()) {
                         ItemStack done = named(Items.NETHER_STAR,
-                                        Lang.plain(session.player, "auth.panel.done.name").withStyle(ChatFormatting.GREEN),
+                                        Lang.plain(session.player, "auth.panel.done.name").formatted(Formatting.GREEN),
                                         lore(Lang.plain(session.player, "auth.panel.done.lore")));
                         set(SLOT_LOGIN, done);
                         set(SLOT_REGISTER, fillerPane());
@@ -138,7 +139,7 @@ public final class AuthPanel extends ChestGui {
                                                         + 999L) / 1000L)
                                         : 0L;
                         ItemStack barrier = named(Items.BARRIER,
-                                        Lang.plain(session.player, "auth.panel.locked.name").withStyle(ChatFormatting.RED),
+                                        Lang.plain(session.player, "auth.panel.locked.name").formatted(Formatting.RED),
                                         lore(session.account != null && session.account.locked()
                                                         ? line("auth.panel.locked.permanent")
                                                         : line("auth.panel.locked.remaining", seconds)));
@@ -151,15 +152,15 @@ public final class AuthPanel extends ChestGui {
                                 set(SLOT_LOGIN, fillerPane());
                                 ItemStack register = named(Items.WRITABLE_BOOK,
                                                 Lang.plain(session.player, "auth.panel.register.name")
-                                                                .withStyle(ChatFormatting.GREEN),
+                                                                .formatted(Formatting.GREEN),
                                                 lore(line("auth.panel.register.lore1"), line("auth.panel.register.lore2")));
-                                register.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+                                register.set(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
                                 set(SLOT_REGISTER, register);
                         } else {
                                 ItemStack login = named(Items.BOOK,
-                                                Lang.plain(session.player, "auth.panel.login.name").withStyle(ChatFormatting.GREEN),
+                                                Lang.plain(session.player, "auth.panel.login.name").formatted(Formatting.GREEN),
                                                 lore(line("auth.panel.login.lore1"), line("auth.panel.login.lore2")));
-                                login.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+                                login.set(DataComponentTypes.ENCHANTMENT_GLINT_OVERRIDE, true);
                                 set(SLOT_LOGIN, login);
                                 set(SLOT_REGISTER, fillerPane());
                         }
@@ -168,12 +169,18 @@ public final class AuthPanel extends ChestGui {
                 // --- Deadline clock -------------------------------------------------------
                 if (!session.authenticated()) {
                         ItemStack clock = named(Items.CLOCK,
-                                        Lang.plain(session.player, "auth.panel.deadline.name").withStyle(ChatFormatting.GOLD),
+                                        Lang.plain(session.player, "auth.panel.deadline.name").formatted(Formatting.GOLD),
                                         lore(line("auth.panel.deadline.lore", session.secondsUntilDeadline())));
                         set(SLOT_DEADLINE, clock);
                 } else {
                         set(SLOT_DEADLINE, fillerPane());
                 }
+
+                set(SLOT_PASSWORD_SAFETY, named(Items.PAPER,
+                                Lang.plain(session.player, "auth.panel.passwordSafety.name")
+                                                .formatted(Formatting.YELLOW),
+                                lore(line("auth.panel.passwordSafety.lore1"),
+                                                line("auth.panel.passwordSafety.lore2"))));
 
                 fill();
         }
@@ -184,6 +191,8 @@ public final class AuthPanel extends ChestGui {
                         manager.sendTranslated(viewer(), "auth.panel.login.hint");
                 } else if (slot == SLOT_REGISTER && session.account == null && !sessionStateLocked()) {
                         manager.sendTranslated(viewer(), "auth.panel.register.hint");
+                } else if (slot == SLOT_PASSWORD_SAFETY) {
+                        manager.sendTranslated(viewer(), "auth.panel.passwordSafety.hint");
                 }
                 // All other slots are informational.
         }
@@ -206,7 +215,7 @@ public final class AuthPanel extends ChestGui {
         }
 
         @Override
-        public Component title() {
+        public Text title() {
                 return Lang.plain(viewer(), "auth.panel.title");
         }
 }

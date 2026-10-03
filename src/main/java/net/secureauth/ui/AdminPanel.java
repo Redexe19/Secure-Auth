@@ -1,21 +1,19 @@
 package net.secureauth.ui;
 
 import java.util.List;
-import net.minecraft.ChatFormatting;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.chat.Component;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.ProfileComponent;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.screen.NamedScreenHandlerFactory;
+import net.minecraft.screen.ScreenHandler;
+import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.permissions.Permission;
-import net.minecraft.server.permissions.PermissionLevel;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.MenuProvider;
-import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.ResolvableProfile;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.secureauth.account.Account;
 import net.secureauth.account.StoreException;
 import net.secureauth.auth.AuthManager;
@@ -50,35 +48,35 @@ public final class AdminPanel extends ChestGui {
         private final MinecraftServer server;
         private final int page;
 
-        private AdminPanel(int containerId, Inventory playerInventory, AuthManager manager,
+        private AdminPanel(int containerId, PlayerInventory playerInventory, AuthManager manager,
                         MinecraftServer server, int page) {
-                super(MenuType.GENERIC_9x6, containerId, playerInventory, 6, (ServerPlayer) playerInventory.player);
+                super(ScreenHandlerType.GENERIC_9X6, containerId, playerInventory, 6, (ServerPlayerEntity) playerInventory.player);
                 this.manager = manager;
                 this.server = server;
                 this.page = page;
         }
 
         /** Opens the admin panel (page 0) for an administrator. */
-        public static void open(AuthManager manager, ServerPlayer admin) {
+        public static void open(AuthManager manager, ServerPlayerEntity admin) {
                 openPage(manager, admin, 0);
         }
 
-        private static void openPage(AuthManager manager, ServerPlayer admin, int page) {
-                MinecraftServer server = admin.level().getServer();
-                admin.openMenu(new MenuProvider() {
+        private static void openPage(AuthManager manager, ServerPlayerEntity admin, int page) {
+                MinecraftServer server = admin.getEntityWorld().getServer();
+                admin.openHandledScreen(new NamedScreenHandlerFactory() {
                         @Override
-                        public Component getDisplayName() {
+                        public Text getDisplayName() {
                                 // Literal, server-resolved title (vanilla clients have no auth.* translations).
                                 return Lang.plain(admin, "auth.admin.panel.title");
                         }
 
                         @Override
-                        public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player viewer) {
+                        public ScreenHandler createMenu(int containerId, PlayerInventory inventory, PlayerEntity viewer) {
                                 AdminPanel panel = new AdminPanel(containerId, inventory, manager,
                                                 server, page);
                                 panel.build();
                                 manager.logger().log(SecurityEvent.PANEL_OPENED,
-                                                admin.getGameProfile().name(), admin.getIpAddress(), "admin");
+                                                admin.getGameProfile().name(), admin.getIp(), "admin");
                                 return panel;
                         }
                 });
@@ -86,7 +84,7 @@ public final class AdminPanel extends ChestGui {
 
         @Override
         protected void build() {
-                List<ServerPlayer> online = List.copyOf(server.getPlayerList().getPlayers());
+                List<ServerPlayerEntity> online = List.copyOf(server.getPlayerManager().getPlayerList());
                 int totalPages = Math.max(1, (online.size() + PLAYERS_PER_PAGE - 1) / PLAYERS_PER_PAGE);
                 int safePage = Math.min(page, totalPages - 1);
                 int from = safePage * PLAYERS_PER_PAGE;
@@ -99,7 +97,7 @@ public final class AdminPanel extends ChestGui {
                                 .count();
                 ItemStack summary = named(Items.NETHER_STAR,
                                 Lang.plain(viewer(), "auth.admin.panel.summary.name")
-                                                .withStyle(ChatFormatting.GOLD),
+                                                .formatted(Formatting.GOLD),
                                 lore(
                                                 line("auth.admin.panel.summary.online", online.size()),
                                                 line("auth.admin.panel.summary.authenticated", authenticated),
@@ -109,54 +107,54 @@ public final class AdminPanel extends ChestGui {
                 // --- Player heads -------------------------------------------------------------
                 int gridSlot = 9;
                 for (int i = from; i < to; i++) {
-                        ServerPlayer target = online.get(i);
+                        ServerPlayerEntity target = online.get(i);
                         set(gridSlot++, playerHead(target));
                 }
 
                 // --- Pagination row -------------------------------------------------------------
                 if (safePage > 0) {
                         set(SLOT_PREV, named(Items.ARROW,
-                                        Lang.plain(viewer(), "auth.admin.panel.prev").withStyle(ChatFormatting.YELLOW)));
+                                        Lang.plain(viewer(), "auth.admin.panel.prev").formatted(Formatting.YELLOW)));
                 }
                 if (safePage < totalPages - 1) {
                         set(SLOT_NEXT, named(Items.ARROW,
-                                        Lang.plain(viewer(), "auth.admin.panel.next").withStyle(ChatFormatting.YELLOW)));
+                                        Lang.plain(viewer(), "auth.admin.panel.next").formatted(Formatting.YELLOW)));
                 }
                 set(SLOT_PAGE, named(Items.PAPER,
                                 Lang.plain(viewer(), "auth.admin.panel.page", safePage + 1, totalPages)
-                                                .withStyle(ChatFormatting.WHITE)));
+                                                .formatted(Formatting.WHITE)));
 
                 fill();
         }
 
-        private ItemStack playerHead(ServerPlayer target) {
+        private ItemStack playerHead(ServerPlayerEntity target) {
                 AuthSession session = manager.session(target);
                 boolean authed = session != null && session.authenticated();
                 boolean locked = session != null && session.state == AuthState.LOCKED;
                 int maxAttempts = manager.config().security.maxLoginAttempts;
                 int failed = session != null && session.account != null ? session.account.failedAttempts() : 0;
 
-                Component state = authed
+                Text state = authed
                                 ? Lang.plain(viewer(), "auth.panel.status.authenticated")
                                 : locked ? Lang.plain(viewer(), "auth.panel.status.locked")
                                                 : Lang.plain(viewer(), "auth.panel.status.awaiting");
                 ItemStack head = named(Items.PLAYER_HEAD,
-                                Component.literal(target.getGameProfile().name()).withStyle(ChatFormatting.WHITE),
+                                Text.literal(target.getGameProfile().name()).formatted(Formatting.WHITE),
                                 lore(
                                                 Lang.plain(viewer(), "auth.admin.detail.state").append(state),
                                                 line("auth.admin.detail.attempts", Math.max(0, maxAttempts - failed)),
                                                 line("auth.admin.detail.ip", session == null ? "?" : session.ip)));
-                head.set(DataComponents.PROFILE, ResolvableProfile.createResolved(target.getGameProfile()));
+                head.set(DataComponentTypes.PROFILE, ProfileComponent.ofStatic(target.getGameProfile()));
                 return head;
         }
 
         @Override
         protected void onClick(int slot) {
-                ServerPlayer admin = viewer();
+                ServerPlayerEntity admin = viewer();
                 if (!isAdmin(admin)) {
                         // The permission may have been revoked (or the admin was logged out)
                         // while the panel was open: re-check on every click.
-                        admin.closeContainer();
+                        admin.closeHandledScreen();
                         return;
                 }
                 if (slot == SLOT_PREV && page > 0) {
@@ -168,7 +166,7 @@ public final class AdminPanel extends ChestGui {
                         return;
                 }
                 if (slot >= 9 && slot < 9 + PLAYERS_PER_PAGE) {
-                        List<ServerPlayer> online = List.copyOf(server.getPlayerList().getPlayers());
+                        List<ServerPlayerEntity> online = List.copyOf(server.getPlayerManager().getPlayerList());
                         int totalPages = Math.max(1, (online.size() + PLAYERS_PER_PAGE - 1) / PLAYERS_PER_PAGE);
                         int safePage = Math.min(page, totalPages - 1);
                         int index = safePage * PLAYERS_PER_PAGE + (slot - 9);
@@ -181,22 +179,21 @@ public final class AdminPanel extends ChestGui {
         @Override
         protected void onClickSpam() {
                 manager.logger().log(SecurityEvent.INVALID_AUTH_PACKET, viewer().getGameProfile().name(),
-                                viewer().getIpAddress(), "admin_panel_click_spam");
+                                viewer().getIp(), "admin_panel_click_spam");
         }
 
         /** Admin gate re-checked per click: the same check as /auth panel. */
-        private boolean isAdmin(ServerPlayer admin) {
+        private boolean isAdmin(ServerPlayerEntity admin) {
                 int level = Math.min(4, Math.max(1, manager.config().administration.adminOpLevel));
                 try {
-                        return admin.permissions().hasPermission(
-                                        new Permission.HasCommandLevel(PermissionLevel.byId(level)));
+                        return admin.hasPermissionLevel(level);
                 } catch (RuntimeException e) {
                         return false;
                 }
         }
 
         @Override
-        public Component title() {
+        public Text title() {
                 return Lang.plain(viewer(), "auth.admin.panel.title");
         }
 
@@ -215,27 +212,27 @@ public final class AdminPanel extends ChestGui {
                 private static final int SLOT_BACK = 18;
 
                 private final AuthManager manager;
-                private final ServerPlayer target;
+                private final ServerPlayerEntity target;
 
-                private AdminPlayerDetail(int containerId, Inventory playerInventory, AuthManager manager,
-                                ServerPlayer target) {
-                        super(MenuType.GENERIC_9x3, containerId, playerInventory, 3, (ServerPlayer) playerInventory.player);
+                private AdminPlayerDetail(int containerId, PlayerInventory playerInventory, AuthManager manager,
+                                ServerPlayerEntity target) {
+                        super(ScreenHandlerType.GENERIC_9X3, containerId, playerInventory, 3, (ServerPlayerEntity) playerInventory.player);
                         this.manager = manager;
                         this.target = target;
                 }
 
-                static void open(AuthManager manager, ServerPlayer admin, ServerPlayer target) {
-                        admin.openMenu(new MenuProvider() {
+                static void open(AuthManager manager, ServerPlayerEntity admin, ServerPlayerEntity target) {
+                        admin.openHandledScreen(new NamedScreenHandlerFactory() {
                                 @Override
-                                public Component getDisplayName() {
+                                public Text getDisplayName() {
                                         // Literal, server-resolved title (vanilla clients have no auth.* translations).
                                         return Lang.plain(admin, "auth.admin.detail.title",
                                                         target.getGameProfile().name());
                                 }
 
                                 @Override
-                                public AbstractContainerMenu createMenu(int containerId, Inventory inventory,
-                                                Player viewer) {
+                                public ScreenHandler createMenu(int containerId, PlayerInventory inventory,
+                                                PlayerEntity viewer) {
                                         AdminPlayerDetail detail = new AdminPlayerDetail(containerId, inventory,
                                                         manager, target);
                                         detail.build();
@@ -252,13 +249,13 @@ public final class AdminPanel extends ChestGui {
                         boolean locked = account != null && account.locked();
                         int maxAttempts = manager.config().security.maxLoginAttempts;
 
-                        Component state = authed
+                        Text state = authed
                                         ? Lang.plain(viewer(), "auth.panel.status.authenticated")
                                         : locked ? Lang.plain(viewer(), "auth.panel.status.lockedPermanent")
                                                         : Lang.plain(viewer(), "auth.panel.status.awaiting");
 
                         ItemStack head = named(Items.PLAYER_HEAD,
-                                        Component.literal(target.getGameProfile().name()).withStyle(ChatFormatting.WHITE),
+                                        Text.literal(target.getGameProfile().name()).formatted(Formatting.WHITE),
                                         lore(
                                                         Lang.plain(viewer(), "auth.admin.detail.state").append(state),
                                                         line("auth.admin.detail.attempts",
@@ -267,36 +264,36 @@ public final class AdminPanel extends ChestGui {
                                                         line("auth.admin.detail.ip", session == null ? "?" : session.ip),
                                                         line("auth.admin.detail.algorithm",
                                                                         account == null ? "-" : account.algorithm())));
-                        head.set(DataComponents.PROFILE, ResolvableProfile.createResolved(target.getGameProfile()));
+                        head.set(DataComponentTypes.PROFILE, ProfileComponent.ofStatic(target.getGameProfile()));
                         set(SLOT_HEAD, head);
 
                         set(SLOT_LOCK, locked ? fillerPane()
                                         : named(Items.BARRIER, Lang.plain(viewer(), "auth.admin.action.lock.name")
-                                                        .withStyle(ChatFormatting.RED),
+                                                        .formatted(Formatting.RED),
                                                         lore(line("auth.admin.action.lock.lore"))));
                         set(SLOT_UNLOCK, !locked ? fillerPane()
                                         : named(Items.EMERALD, Lang.plain(viewer(), "auth.admin.action.unlock.name")
-                                                        .withStyle(ChatFormatting.GREEN),
+                                                        .formatted(Formatting.GREEN),
                                                         lore(line("auth.admin.action.unlock.lore"))));
                         set(SLOT_FORCE_LOGOUT, authed
                                         ? named(Items.REDSTONE, Lang.plain(viewer(), "auth.admin.action.forcelogout.name")
-                                                        .withStyle(ChatFormatting.YELLOW),
+                                                        .formatted(Formatting.YELLOW),
                                                         lore(line("auth.admin.action.forcelogout.lore")))
                                         : fillerPane());
                         set(SLOT_RESET_HINT, named(Items.PAPER,
-                                        Lang.plain(viewer(), "auth.admin.action.reset.name").withStyle(ChatFormatting.LIGHT_PURPLE),
+                                        Lang.plain(viewer(), "auth.admin.action.reset.name").formatted(Formatting.LIGHT_PURPLE),
                                         lore(line("auth.admin.action.reset.lore1"), line("auth.admin.action.reset.lore2"))));
                         set(SLOT_BACK, named(Items.ARROW,
-                                        Lang.plain(viewer(), "auth.admin.action.back.name").withStyle(ChatFormatting.GRAY)));
+                                        Lang.plain(viewer(), "auth.admin.action.back.name").formatted(Formatting.GRAY)));
 
                         fill();
                 }
 
                 @Override
                 protected void onClick(int slot) {
-                        ServerPlayer admin = viewer();
+                        ServerPlayerEntity admin = viewer();
                         if (!isAdmin(admin)) {
-                                admin.closeContainer();
+                                admin.closeHandledScreen();
                                 return;
                         }
                         String targetName = target.getGameProfile().name();
@@ -310,7 +307,7 @@ public final class AdminPanel extends ChestGui {
                                                 manager.logout(target);
                                                 manager.logger().log(SecurityEvent.ADMIN_FORCE_LOGOUT,
                                                                 admin.getGameProfile().name(), targetNorm,
-                                                                admin.getIpAddress(), "panel");
+                                                                admin.getIp(), "panel");
                                                 manager.sendTranslated(admin, "auth.admin.forcelogout.success", targetName);
                                         }
                                         refresh();
@@ -326,7 +323,7 @@ public final class AdminPanel extends ChestGui {
                         }
                 }
 
-                private void setLocked(ServerPlayer admin, boolean lock) {
+                private void setLocked(ServerPlayerEntity admin, boolean lock) {
                         AuthSession session = manager.session(target);
                         Account account = session == null ? null : session.account;
                         if (account == null) {
@@ -339,7 +336,7 @@ public final class AdminPanel extends ChestGui {
                                 // Root cause into the logs (since 1.2.4): a generic player-facing
                                 // message alone made flaky store failures undiagnosable.
                                 manager.logger().log(SecurityEvent.DATABASE_UNAVAILABLE,
-                                                admin.getGameProfile().name(), null, admin.getIpAddress(),
+                                                admin.getGameProfile().name(), null, admin.getIp(),
                                                 "panel_lock:" + net.secureauth.account.StoreException.describe(e));
                                 manager.sendTranslated(admin, "auth.storage.unavailable");
                                 return;
@@ -362,7 +359,7 @@ public final class AdminPanel extends ChestGui {
                         }
                         manager.logger().log(lock ? SecurityEvent.ACCOUNT_PERMANENTLY_LOCKED
                                         : SecurityEvent.ACCOUNT_UNLOCKED,
-                                        admin.getGameProfile().name(), account.usernameNorm(), admin.getIpAddress(),
+                                        admin.getGameProfile().name(), account.usernameNorm(), admin.getIp(),
                                         "panel");
                         manager.sendTranslated(admin, lock ? "auth.admin.lock.success" : "auth.admin.unlock.success",
                                         account.usernameDisplay());
@@ -370,11 +367,10 @@ public final class AdminPanel extends ChestGui {
                 }
 
                 /** Admin gate re-checked per click: the same check as /auth panel. */
-                private boolean isAdmin(ServerPlayer admin) {
+                private boolean isAdmin(ServerPlayerEntity admin) {
                         int level = Math.min(4, Math.max(1, manager.config().administration.adminOpLevel));
                         try {
-                                return admin.permissions().hasPermission(
-                                                new Permission.HasCommandLevel(PermissionLevel.byId(level)));
+                                return admin.hasPermissionLevel(level);
                         } catch (RuntimeException e) {
                                 return false;
                         }
@@ -383,11 +379,11 @@ public final class AdminPanel extends ChestGui {
                 @Override
                 protected void onClickSpam() {
                         manager.logger().log(SecurityEvent.INVALID_AUTH_PACKET, viewer().getGameProfile().name(),
-                                        viewer().getIpAddress(), "admin_detail_click_spam");
+                                        viewer().getIp(), "admin_detail_click_spam");
                 }
 
                 @Override
-                public Component title() {
+                public Text title() {
                         return Lang.plain(viewer(), "auth.admin.detail.title", target.getGameProfile().name());
                 }
         }
