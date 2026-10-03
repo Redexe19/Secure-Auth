@@ -1,0 +1,18 @@
+{
+	"required": false,
+	"minVersion": "0.8",
+	"package": "net.secureauth.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"ServerCommonPacketListenerImplMixin",
+		"CommandsMixin",
+		"ServerGamePacketListenerImplMixin",
+		"ItemEntityMixin",
+		"ServerLevelMixin",
+		"MinecraftServerMixin",
+		"EntityMixin"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}
