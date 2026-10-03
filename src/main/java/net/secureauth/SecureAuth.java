@@ -148,6 +148,12 @@ public final class SecureAuth implements ModInitializer {
                         secLogger.log(SecurityEvent.CONFIG_ERROR, MOD_ID, null, "",
                                         "config_load_failed; using defaults");
                 }
+                if (loaded.authentication.sessionPersistSeconds > 0) {
+                        LOGGER.warn("SecureAuth session auto-resume is enabled for {} seconds. It bypasses the password "
+                                        + "for a returning username from the same IP, which is not a reliable identity "
+                                        + "on shared networks. Set authentication.sessionPersistSeconds: 0 to disable it.",
+                                        loaded.authentication.sessionPersistSeconds);
+                }
 
                 // --- 4. Connection lifecycle ----------------------------------------------
                 ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {

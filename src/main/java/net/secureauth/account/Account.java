@@ -38,8 +38,8 @@ public final class Account {
 		this.offlineUuid = offlineUuid;
 		this.algorithm = algorithm;
 		this.hashVersion = hashVersion;
-		this.salt = salt;
-		this.hash = hash;
+		this.salt = salt == null ? null : salt.clone();
+		this.hash = hash == null ? null : hash.clone();
 		this.hashParams = hashParams;
 		this.createdAt = createdAt;
 		this.lastLogin = lastLogin;
@@ -84,11 +84,11 @@ public final class Account {
 	}
 
 	public byte[] salt() {
-		return salt;
+		return salt == null ? null : salt.clone();
 	}
 
 	public byte[] hash() {
-		return hash;
+		return hash == null ? null : hash.clone();
 	}
 
 	public String hashParams() {

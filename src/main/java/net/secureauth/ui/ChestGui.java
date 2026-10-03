@@ -18,6 +18,7 @@ import net.secureauth.lang.Lang;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Base class for SecureAuth's server-built chest menus — the "economy shop
@@ -41,15 +42,15 @@ import java.util.List;
 public abstract class ChestGui extends ChestMenu {
 
         /** Minimum gap between two processed clicks on the same panel. */
-        private static final long CLICK_MIN_INTERVAL_MS = 100L;
+        private static final long CLICK_MIN_INTERVAL_NANOS = TimeUnit.MILLISECONDS.toNanos(100L);
 
         /** Minimum gap between two click-spam log entries. */
-        private static final long SPAM_LOG_INTERVAL_MS = 5_000L;
+        private static final long SPAM_LOG_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(5L);
 
         private final ServerPlayer viewer;
 
-        private long lastClickAt;
-        private long lastSpamLogAt;
+        private long lastClickAtNanos;
+        private long lastSpamLogAtNanos;
 
         protected ChestGui(MenuType<?> type, int containerId, Inventory playerInventory, int rows,
                         ServerPlayer viewer) {
@@ -128,16 +129,16 @@ public abstract class ChestGui extends ChestMenu {
                 if (player != viewer) {
                         return;
                 }
-                long now = System.currentTimeMillis();
-                if (now - lastClickAt < CLICK_MIN_INTERVAL_MS) {
+                long now = System.nanoTime();
+                if (lastClickAtNanos != 0L && now - lastClickAtNanos < CLICK_MIN_INTERVAL_NANOS) {
                         // Rapid multi-click: ignore, and log a single INVALID_AUTH_PACKET per window.
-                        if (now - lastSpamLogAt > SPAM_LOG_INTERVAL_MS) {
-                                lastSpamLogAt = now;
+                        if (lastSpamLogAtNanos == 0L || now - lastSpamLogAtNanos >= SPAM_LOG_INTERVAL_NANOS) {
+                                lastSpamLogAtNanos = now;
                                 onClickSpam();
                         }
                         return;
                 }
-                lastClickAt = now;
+                lastClickAtNanos = now;
 
                 int gridSize = getRowCount() * 9;
                 if (slotIndex >= 0 && slotIndex < gridSize) {

@@ -12,7 +12,7 @@ import net.secureauth.config.AuthConfig;
  *
  * <p>When a player disconnects while authenticated, their identity — offline UUID,
  * normalised username and IP — is remembered in memory for
- * {@code authentication.sessionPersistSeconds} (default 43200 = 12 hours, 0 = off).
+ * {@code authentication.sessionPersistSeconds} (default 0 = off).
  * A re-join of the same UUID from the same IP inside that window is
  * auto-authenticated without a password prompt, so short reconnects and routine
  * re-joins are not a login hassle. A join from a different IP (or after the
@@ -22,7 +22,8 @@ import net.secureauth.config.AuthConfig;
  * tokens: no client storage, no wire token, nothing to leak from a database dump.
  * The trade-off is documented — a shared NAT IP lets anyone with the same name
  * resume the session — which is why {@code sessionRequireSameIp} is on by default,
- * why the window can be shortened or disabled per server, and why every resume is
+ * why the feature is disabled by default, why the window can be enabled or shortened
+ * per server, and why every resume is
  * written to the security log as {@code SESSION_RESUMED}.</p>
  */
 public final class SessionResumeService {

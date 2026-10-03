@@ -43,6 +43,7 @@ public final class AuthPanel extends ChestGui {
         private static final int SLOT_LOCKED = 13;
         private static final int SLOT_REGISTER = 15;
         private static final int SLOT_DEADLINE = 22;
+        private static final int SLOT_PASSWORD_SAFETY = 26;
 
         private final AuthManager manager;
         private final AuthSession session;
@@ -175,6 +176,12 @@ public final class AuthPanel extends ChestGui {
                         set(SLOT_DEADLINE, fillerPane());
                 }
 
+                set(SLOT_PASSWORD_SAFETY, named(Items.PAPER,
+                                Lang.plain(session.player, "auth.panel.passwordSafety.name")
+                                                .withStyle(ChatFormatting.YELLOW),
+                                lore(line("auth.panel.passwordSafety.lore1"),
+                                                line("auth.panel.passwordSafety.lore2"))));
+
                 fill();
         }
 
@@ -184,6 +191,8 @@ public final class AuthPanel extends ChestGui {
                         manager.sendTranslated(viewer(), "auth.panel.login.hint");
                 } else if (slot == SLOT_REGISTER && session.account == null && !sessionStateLocked()) {
                         manager.sendTranslated(viewer(), "auth.panel.register.hint");
+                } else if (slot == SLOT_PASSWORD_SAFETY) {
+                        manager.sendTranslated(viewer(), "auth.panel.passwordSafety.hint");
                 }
                 // All other slots are informational.
         }

@@ -39,8 +39,8 @@ public final class AuthConfig {
                 public boolean autoLoginAfterRegister = true;
                 /** Warn the player every N seconds while waiting for authentication. */
                 public int warningIntervalSeconds = 15;
-                /** Seconds an authenticated disconnect is remembered for quick re-login (0 = off, default 12 h). */
-                public int sessionPersistSeconds = 43200;
+                /** Seconds an authenticated disconnect is remembered for quick re-login (0 = off; disabled by default). */
+                public int sessionPersistSeconds = 0;
                 /** Require the same IP for the session resume to apply. */
                 public boolean sessionRequireSameIp = true;
         }
@@ -447,8 +447,8 @@ public final class AuthConfig {
                                   warningIntervalSeconds: 15
                                   # Remember an authenticated disconnect for this many seconds; a
                                   # re-join from the same IP is auto-authenticated (0 = off).
-                                  # Default: 43200 = 12 hours; a different IP always logs in normally.
-                                  sessionPersistSeconds: 43200
+                                  # Default: 0 (disabled); shared IPs do not distinguish people.
+                                  sessionPersistSeconds: 0
                                   # Require the same IP for the session resume to apply.
                                   sessionRequireSameIp: true
 

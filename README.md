@@ -23,6 +23,16 @@ clients render as an ordinary chest menu.
 > command, every config key, the auth state machine, the sandbox internals, the security
 > events reference, FAQ and troubleshooting.
 
+## Why I built this
+ 
+I built SecureAuth because of a problem I noticed in most auth mods: **they block commands, and other simple factors, but they don't hide where you are.**
+ 
+On a typical auth mod, someone can join using your username without knowing your password, and the moment they spawn in, they're standing at your real position. They never have to log in. Just opening the F3 menu shows your coordinates, your dimension, and everything else on that screen. Your base location can be exposed to anyone who can type your name.
+ 
+SecureAuth fixes this at the root. An unauthenticated player is never placed at your real location. The moment they join, they're moved into a private quarantine dimension, so everything they can see, including F3 info and coordinates, belongs to an empty void instead of your world. Your real position stays stored on the server until the correct password is entered, then you're put back exactly where you left off.
+ 
+> Your password should protect more than your account. It should protect your information too
+
 ## 1.0.0 — first stable release
 
 This is the first public release. Everything below is the complete, verified feature set:
@@ -287,7 +297,7 @@ failures against unknown names return the same style of error as wrong passwords
 Session resume is a purely server-side mechanism (the AuthMe-style "session"): when a
 player **disconnects while authenticated**, their identity — offline UUID, normalised
 username and IP — is remembered **in memory** for `authentication.sessionPersistSeconds`
-(default **43200 = 12 hours**; `0` disables). A re-join of the same UUID and username, from
+(default **0 = disabled**; enable it explicitly to use it). A re-join of the same UUID and username, from
 the same IP when `authentication.sessionRequireSameIp` is on (default), inside that window
 is auto-authenticated with no password prompt — the player skips quarantine entirely and is
 logged as `SESSION_RESUMED`.
@@ -307,7 +317,9 @@ Properties and trade-offs:
 - **The IP check is a heuristic, not an identity.** Behind shared NAT (campus, office,
   CGNAT, household) everyone shares one IP, so `sessionRequireSameIp` does not distinguish
   people behind it — anyone who can also take the same username can resume the session.
-  Shorten the window (or set it to `0`) on servers where that matters, and rely on the
+  It is disabled by default. Only enable it if the convenience trade-off is acceptable;
+  setting the window to `0` disables it. Existing config values are preserved and a startup
+  warning is logged when it is enabled. Rely on the
   security log (`SESSION_RESUMED`, actor + IP) for auditing — every resume is written
   there.
 
@@ -443,8 +455,8 @@ authentication:
   warningIntervalSeconds: 15
   # Remember an authenticated disconnect for this many seconds; a
   # re-join from the same IP is auto-authenticated (0 = off).
-  # Default: 43200 = 12 hours; a different IP always logs in normally.
-  sessionPersistSeconds: 43200
+  # Default: 0 (disabled). Same-IP checks do not distinguish people behind shared NAT.
+  sessionPersistSeconds: 0
   # Require the same IP for the session resume to apply.
   sessionRequireSameIp: true
 
@@ -563,7 +575,7 @@ Notable options:
 |---|---|---|
 | `authentication.enabled` | Master switch; `false` makes the mod completely inert | Restart required |
 | `authentication.timeoutSeconds` | Idle limit before an unauthenticated player is kicked | Clamped to ≥ 5 |
-| `authentication.sessionPersistSeconds` | Server-side session resume window (same-IP quick re-login) | 0 disables it; short windows recommended |
+| `authentication.sessionPersistSeconds` | Server-side session resume window (same-IP quick re-login) | Disabled by default; enabling it lets same-IP rejoiners bypass the password |
 | `authentication.sessionRequireSameIp` | Bind the resume record to the disconnect IP | Off is riskier behind NAT anyway — see [session resume](#session-resume-quick-re-login) |
 | `password.algorithm` | `argon2id` or `pbkdf2` | Applies to **new** hashes; existing hashes verify with their stored parameters |
 | `password.minimumLength` / `maximumLength` | Length-only policy (composition rules hurt more than they help) | Reload applies to new registrations |
@@ -954,9 +966,9 @@ Manually verify a deployment against this list (all defaults; adjust names where
     and the panel re-opened (respawn guard).
 21. `/logout` while authenticated → back in the sandbox, login prompt, panel re-opened,
     and the resume window is gone: rejoining within the window requires the password.
-22. Session resume: log in, disconnect, rejoin from the same IP within 12 hours →
-    auto-authenticated, no quarantine (`SESSION_RESUMED` logged, "Session resumed —
-    welcome back"); restarting the server clears the window; `/logout` before
+22. Session resume: when explicitly enabled, log in, disconnect, rejoin from the same IP
+    within the configured window → auto-authenticated, no quarantine (`SESSION_RESUMED`
+    logged, "Session resumed — welcome back"); restarting the server clears the window; `/logout` before
     disconnecting also clears it.
 23. `/changepassword oldPa55 newPa55 newPa55` → old password required, new one enforced on
     next login; wrong old password → error, nothing changes.
@@ -1031,8 +1043,8 @@ credential channel is the chat command.
 **Session resume: why does my friend get auto-logged-in as me?**
 They are joining from the same IP (shared household/campus/CGNAT NAT) with your username
 inside your resume window. The window is bound to UUID + name + (by default) IP, not to a
-person. Keep `sessionPersistSeconds` small (or 0), keep `sessionRequireSameIp: true`, and
-remember `/logout` invalidates the window immediately.
+person. Session resume is disabled by default; set `sessionPersistSeconds: 0` to turn it off
+for a server that enabled it, and remember `/logout` invalidates the window immediately.
 
 **Log line says "Argon2 unavailable" / logins fail after swapping libraries.**
 The mod falls back to PBKDF2 for *new* accounts when Bouncy Castle cannot be loaded.
