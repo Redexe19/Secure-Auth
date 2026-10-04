@@ -1,9 +1,9 @@
 <img width="2048" height="810" alt="bannerorthumbnail" src="https://github.com/user-attachments/assets/cbcc9f65-c3fe-4e9c-acc0-08a03ebc4def" />
 
 
-**Server-side authentication for offline-mode Minecraft 26.2 Fabric servers.**
+**Server-side authentication for offline-mode Minecraft Fabric servers.**
 
-![Minecraft](https://img.shields.io/badge/Minecraft-26.2-62b47a) ![Fabric](https://img.shields.io/badge/Fabric%20Loader-0.19.5%2B-dbba52) ![Java](https://img.shields.io/badge/Java-25-f89820) ![License](https://img.shields.io/badge/License-MIT-3da639) ![Mode](https://img.shields.io/badge/server--side--only-4ec9b0)
+![Minecraft](https://img.shields.io/badge/Minecraft-26.2-62b47a) ![Release](https://img.shields.io/badge/release-1.0.1-007ec6) ![Ports](https://img.shields.io/badge/ports-1.21%20to%2026.3-e0602c) ![Fabric](https://img.shields.io/badge/Fabric%20Loader-0.19.5%2B-dbba52) ![Java](https://img.shields.io/badge/Java-25-f89820) ![License](https://img.shields.io/badge/License-MIT-3da639) ![Mode](https://img.shields.io/badge/server--side--only-4ec9b0)
 
 SecureAuth turns "logged in" into a **server-side state transition** instead of a chat command
 that the server politely believes. Unauthenticated players are physically moved into a
@@ -19,6 +19,9 @@ packets and no companion handshake. Players join with completely unmodified vani
 and authenticate through chat commands plus a server-built **chest panel** that vanilla
 clients render as an ordinary chest menu.
 
+This README documents the **26.2** release (**1.0.1-26.2**). Ports for Minecraft 1.21
+through 26.3 are published as 1.0.0 builds; see [Supported versions](#supported-versions).
+
 > [!TIP]
 > Looking for the deep documentation? **[WIKI.md](https://github.com/Redexe19/Secure-Auth/wiki)** is the full wiki — every
 > command, every config key, the auth state machine, the sandbox internals, the security
@@ -33,6 +36,26 @@ On a typical auth mod, someone can join using your username without knowing your
 SecureAuth fixes this at the root. An unauthenticated player is never placed at your real location. The moment they join, they're moved into a private quarantine dimension, so everything they can see, including F3 info and coordinates, belongs to an empty void instead of your world. Your real position stays stored on the server until the correct password is entered, then you're put back exactly where you left off.
  
 > Your password should protect more than your account. It should protect your information too
+
+## 1.0.1 — security hardening (26.2)
+
+A drop-in update to 1.0.0: the SQLite schema, config format, command names and the
+`secureauth:auth` dimension ID are unchanged.
+
+- **Session resume is now disabled by default.** In 1.0.0 the default was a 12-hour
+  same-IP window, which on a shared IP could let someone using the same username skip
+  the password. New configs now default to `authentication.sessionPersistSeconds: 0`.
+  **Existing config values are preserved**, so a server still on the old 12-hour value
+  keeps it until changed, and the server logs a startup warning while resume is enabled.
+  To turn it off, set `authentication.sessionPersistSeconds: 0` and run `/auth reload`.
+- **Password-safety tip in the chest panel**, in English, 简体中文, 日本語 and Русский:
+  use a unique password, and commands may remain in chat history.
+- **Hardening:** password hash and salt byte arrays are defensive copies, temporary
+  password character arrays are cleared after hashing, chest-click throttling uses a
+  monotonic clock, and a rate-limiter cleanup race that could briefly reset an IP's
+  allowance is fixed.
+
+The same changes were applied to the 26.1, 26.1.1, 26.1.2 and 26.3 ports.
 
 ## 1.0.0 — first stable release
 
@@ -64,9 +87,9 @@ This is the first public release. Everything below is the complete, verified fea
   failed transaction once, probes its own health every 30 seconds, and every failure
   is journaled with its exact root cause — the flaky "authentication service is
   unavailable" class of failure is gone.
-- **Argon2id passwords, four brute-force layers, structured security log**, a
-  12-hour server-side session-resume window, and vanilla-compatible chest GUIs for
-  players and admins.
+- **Argon2id passwords, four brute-force layers, structured security log**, an optional
+  server-side session-resume window (12 hours by default in 1.0.0; off by default since
+  1.0.1), and vanilla-compatible chest GUIs for players and admins.
 
 <details>
 <summary><strong>Development history (pre-release builds)</strong></summary>
@@ -141,10 +164,11 @@ A player in any state other than `AUTHENTICATED`:
 - is disconnected automatically after a configurable timeout.
 
 Only a successful password verification (or a matching server-side **session resume** record,
-see below) performs the state transition to `AUTHENTICATED`, restores the player from a
-server-side snapshot of their original dimension, position, rotation and game mode, and lifts
-every restriction at once. If the account database cannot be read, the player stays
-quarantined — the mod **fails closed**, never open.
+if you have enabled that feature — see below) performs the state transition to
+`AUTHENTICATED`, restores the player from a server-side snapshot of their original
+dimension, position, rotation and game mode, and lifts every restriction at once. If the
+account database cannot be read, the player stays quarantined — the mod **fails closed**,
+never open.
 
 The auth UX is deliberately ordinary: a chat prompt (`/login <password>`) plus a chest panel
 the server builds out of vanilla items. No custom packets, no client mod, nothing a modified
@@ -183,7 +207,7 @@ decides what an unauthenticated connection may see and do.
                     └───┬─────────┬─────┘
         /login <pw> ────┘         └──── failures ≥ maxLoginAttempts
         or session resume                │
-        (same-IP window)                 ▼
+        (same-IP window, if enabled)     ▼
                 │              ┌───────────────┐   permanentLockAfter
                 │              │    LOCKED     │◄─ RepeatedLockouts, or
                 │              │ (temporary or │  /auth lock (permanent)
@@ -240,6 +264,7 @@ or entity-recreation races (a cross-dimension transfer can silently replace the
 3. **Trusted-rejoin rescue** — a same-IP session-resume join whose save data still
    points into the auth dimension (the player disconnected while a release was pending)
    is moved out immediately, before they can fall anywhere, and fall distance is reset.
+   (Only relevant when session resume is enabled.)
 4. **Ability reconciliation** — the mirror image: an authenticated player who is
    *outside* the auth dimension but still carrying sandbox restrictions (adventure game
    type, the mod's blindness signature, the invulnerable+no-gravity pair — exactly what
@@ -275,12 +300,13 @@ or entity-recreation races (a cross-dimension transfer can silently replace the
 - **PBKDF2-WithHmacSHA256** fallback from the JDK (210 000 iterations, 32-byte output, 16-byte salt) when Argon2 is unavailable or explicitly configured.
 - Algorithm, format version, salt, hash and the exact derivation parameters are stored per account — parameters are upgradeable without invalidating existing hashes.
 - Verification is **constant-time** (`MessageDigest.isEqual`).
+- **Memory hygiene** (1.0.1): password hash and salt byte arrays are handled as defensive copies, and temporary password character arrays are cleared after hashing.
 - Passwords, hashes and salts never appear in logs, `toString()` output or exception messages (defense-in-depth scrubber on the security log).
 
 ### Brute-force protection (four independent layers)
 
 1. **Per-connection cooldown** — one attempt per second by default (`security.perSessionCooldownMs`).
-2. **Per-IP token bucket** — 10 authentication attempts and 20 joins per IP per minute (`security.ipAuthAttemptsPerMinute`, `security.ipJoinAttemptsPerMinute`).
+2. **Per-IP token bucket** — 10 authentication attempts and 20 joins per IP per minute (`security.ipAuthAttemptsPerMinute`, `security.ipJoinAttemptsPerMinute`). Bucket cleanup is race-safe: since 1.0.1 a cleanup pass can no longer briefly reset an IP's allowance.
 3. **Per-account lockout** — after 5 failed passwords the account is locked for 60 seconds (`security.maxLoginAttempts`, `security.lockoutSeconds`).
 4. **Session kick** — after 10 failures within one connection the player is kicked.
 
@@ -298,7 +324,8 @@ failures against unknown names return the same style of error as wrong passwords
 Session resume is a purely server-side mechanism (the AuthMe-style "session"): when a
 player **disconnects while authenticated**, their identity — offline UUID, normalised
 username and IP — is remembered **in memory** for `authentication.sessionPersistSeconds`
-(default **0 = disabled**; enable it explicitly to use it). A re-join of the same UUID and username, from
+(default **0 = disabled** since 1.0.1; enable it explicitly to use it. The 1.0.0 default
+was 43200, 12 hours). A re-join of the same UUID and username, from
 the same IP when `authentication.sessionRequireSameIp` is on (default), inside that window
 is auto-authenticated with no password prompt — the player skips quarantine entirely and is
 logged as `SESSION_RESUMED`.
@@ -319,8 +346,8 @@ Properties and trade-offs:
   CGNAT, household) everyone shares one IP, so `sessionRequireSameIp` does not distinguish
   people behind it — anyone who can also take the same username can resume the session.
   It is disabled by default. Only enable it if the convenience trade-off is acceptable;
-  setting the window to `0` disables it. Existing config values are preserved and a startup
-  warning is logged when it is enabled. Rely on the
+  setting the window to `0` disables it. Existing config values are preserved on upgrade
+  and a startup warning is logged when it is enabled. Rely on the
   security log (`SESSION_RESUMED`, actor + IP) for auditing — every resume is written
   there.
 
@@ -361,6 +388,20 @@ Properties and trade-offs:
 | Java | 25 (server) |
 | `server.properties` | `online-mode=false` |
 
+### Supported versions
+
+| Minecraft | Release | Java | Fabric Loader | Session resume default |
+|---|---|---|---|---|
+| **26.2** | **1.0.1** | 25 | 0.19.5+ | off |
+| 26.3 | 1.0.0 | 25 | 0.19.5+ | 12 h |
+| 26.1 / 26.1.1 / 26.1.2 | 1.0.0 | 25 | 0.19.5+ | 12 h |
+| 1.21 – 1.21.11 | 1.0.0 | 21+ | 0.18.1+ | 12 h |
+
+Each jar loads only on the Minecraft versions listed for it. On the 1.0.0 builds, set
+`authentication.sessionPersistSeconds: 0` and run `/auth reload` if your players share
+IPs. Everything else in this README applies to every version, except where a section
+marks a 1.0.1 change.
+
 **Install:**
 
 1. Set `online-mode=false` in `server.properties` (offline mode is the scenario this mod
@@ -373,6 +414,11 @@ Properties and trade-offs:
      file and schema are created at startup).
 4. Review `config/secureauth/config.yml`, adjust, and restart (or use `/auth reload` for
    non-structural values).
+
+**Upgrading from 1.0.0:** replace the jar and restart. Your existing config values are
+kept, including `sessionPersistSeconds`, so a server running the 1.0.0 default keeps the
+12-hour resume window until you set it to `0`. The startup log prints a warning while
+resume is enabled.
 
 Players join with **completely unmodified vanilla clients** — there is nothing to install
 on the client side, and clients running other mods are unaffected because SecureAuth sends
@@ -405,16 +451,16 @@ $ cd secureauth
 $ ./gradlew build
 ```
 
-The mod jar lands in `build/libs/secureauth-1.0.0.jar` (plus
-`secureauth-1.0.0-sources.jar`). Drop the former into your server's `mods/` folder —
-that's the only artifact you need. On Windows use `gradlew.bat` instead.
+The mod jar lands in `build/libs/` as `secureauth-<mod_version>.jar` (plus a
+`-sources.jar`). Drop the former into your server's `mods/` folder — that's the only
+artifact you need. On Windows use `gradlew.bat` instead.
 
 **What the build does**
 
 1. `./gradlew build` resolves Loom 1.17.20 (pinned by `gradle/wrapper/`), fetches the
    unobfuscated Minecraft 26.2 server/client jars, compiles the 35 Java sources in
    `src/main/java`, expands `${version}` inside `fabric.mod.json` from
-   `gradle.properties` (`mod_version=1.0.0`), and bundles the three pure-Java
+   `gradle.properties` (`mod_version`), and bundles the three pure-Java
    libraries as jar-in-jar dependencies (`include(...)` in `build.gradle` —
    `bcprov-jdk18on` 1.80 for Argon2id, `snakeyaml` 2.2 for the config,
    `sqlite-jdbc` 3.47.1.0 for the account database).
@@ -576,7 +622,7 @@ Notable options:
 |---|---|---|
 | `authentication.enabled` | Master switch; `false` makes the mod completely inert | Restart required |
 | `authentication.timeoutSeconds` | Idle limit before an unauthenticated player is kicked | Clamped to ≥ 5 |
-| `authentication.sessionPersistSeconds` | Server-side session resume window (same-IP quick re-login) | Disabled by default; enabling it lets same-IP rejoiners bypass the password |
+| `authentication.sessionPersistSeconds` | Server-side session resume window (same-IP quick re-login) | Disabled by default since 1.0.1 (existing values are preserved); enabling it lets same-IP rejoiners bypass the password |
 | `authentication.sessionRequireSameIp` | Bind the resume record to the disconnect IP | Off is riskier behind NAT anyway — see [session resume](#session-resume-quick-re-login) |
 | `password.algorithm` | `argon2id` or `pbkdf2` | Applies to **new** hashes; existing hashes verify with their stored parameters |
 | `password.minimumLength` / `maximumLength` | Length-only policy (composition rules hurt more than they help) | Reload applies to new registrations |
@@ -646,7 +692,8 @@ Steve` and `/auth info steve` are equivalent.
 > (client-side `options.txt` history). That is inherent to chat-command authentication on
 > a vanilla client — there is no GUI text field a server-only mod can show. Players who
 > care (streaming, shared machines) should use a unique password they do not reuse
-> elsewhere, and can clear their client's chat history afterwards.
+> elsewhere, and can clear their client's chat history afterwards. Since 1.0.1 the chest
+> panel shows this as a short password-safety tip.
 
 > [!NOTE]
 > **The pre-auth command gate covers `/authpanel` too.** The gate's allow-list is the six
@@ -669,7 +716,8 @@ All player-facing text is translatable keys resolved through vanilla lang files 
 and `ru_ru.json` (Russian); clients render whichever their language setting selects, and
 any key missing from a translation falls back to English. To add another language, copy
 `en_us.json` to `<code>.json`, translate the values and keep the `%s` placeholders and
-`§` color codes intact — no code changes needed.
+`§` color codes intact — no code changes needed. The 1.0.1 password-safety tip is
+included in all four catalogs.
 
 ---
 
@@ -695,7 +743,8 @@ menu safe:
   prediction, so a swallowed click simply snaps back on the player's screen.
 - **Viewer-bound**: `stillValid` is true only for the player the menu was built for (and
   only while they are not removed) — nobody else can keep the menu open or act in it.
-- **Click-spam guard**: at most one click per 100 ms is processed; faster clicking triggers
+- **Click-spam guard**: at most one click per 100 ms is processed, timed on a monotonic
+  clock (since 1.0.1, so system clock changes cannot affect it); faster clicking triggers
   the subclass's `onClickSpam()` hook at most once per 5-second window, which logs
   `INVALID_AUTH_PACKET` with details like `panel_click_spam`.
 - **Live refresh**: `refresh()` clears the grid, rebuilds every item from the current
@@ -722,6 +771,8 @@ A 27-slot panel (`GENERIC_9x3`) that replaces the old client-side auth screen. L
 - **Locked barrier** (slot 13): shown in lockout state, with the remaining seconds (or the
   "contact an administrator" text for permanent locks).
 - **Deadline clock** (slot 22): seconds until the timeout disconnect.
+- **Password-safety tip** (1.0.1): the panel reminds players to use a unique password and
+  warns that commands may remain in chat history, in English, 简体中文, 日本語 and Русский.
 - On successful authentication the panel closes itself. Re-opening it later (e.g.
   `/authpanel` while authenticated) shows a green "Authenticated" star instead of the
   action items.
@@ -872,7 +923,8 @@ CREATE TABLE security_events (
 CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
 ```
 
-No sessions table exists: session resume is in-memory by design.
+No sessions table exists: session resume is in-memory by design. The schema is unchanged
+between 1.0.0 and 1.0.1.
 
 All writes run inside transactions (with the close/reopen/retry-once self-heal on
 failure); the database runs with WAL journaling, `synchronous=NORMAL`, foreign keys on,
@@ -894,7 +946,7 @@ Every entry records event type, actor, target, IP and scrubbed details:
 | `ADMIN_RESET` | An administrator reset an account |
 | `ADMIN_UNREGISTER` | An administrator deleted an account |
 | `ADMIN_FORCE_LOGOUT` | An administrator forced a player back to the auth area |
-| `SESSION_RESUMED` | A returning player was auto-authenticated by the IP-bound session resume |
+| `SESSION_RESUMED` | A returning player was auto-authenticated by the IP-bound session resume (only when resume is enabled) |
 | `AUTH_TIMEOUT` | A player was disconnected for not authenticating in time |
 | `PLAYER_QUARANTINED` | A player entered the pre-authentication sandbox |
 | `AUTH_STATE_RESTORED` | A player was restored to the real world |
@@ -919,8 +971,8 @@ Every entry records event type, actor, target, IP and scrubbed details:
   (`logging.logToDatabase`, `logging.logToFile`, `logging.authenticationEvents`) to remove
   them. A dedicated privacy mode that stops storing IPs entirely is a deliberate
   non-goal: without IPs the rate limiter's audit trail is useless.
-- Session resume stores only UUID, normalised name, IP and an expiry timestamp, in
-  memory, never on disk.
+- Session resume (when enabled) stores only UUID, normalised name, IP and an expiry
+  timestamp, in memory, never on disk.
 - No telemetry of any kind.
 
 ---
@@ -932,7 +984,7 @@ Manually verify a deployment against this list (all defaults; adjust names where
 1. Fresh player joins → lands inside the bedrock holding cell in the `secureauth:auth`
    void (blindness fog active, adventure mode on), register prompt arrives in chat
    **and the chest panel auto-opens** (head shows "Not registered", register book shows
-   the `/register` syntax in its lore).
+   the `/register` syntax in its lore, and the password-safety tip is visible).
 2. `/register secret123 secret123` → account created, auto-login, restored to the exact
    pre-join dimension/position/rotation and game mode; the panel closes itself; the tab
    list repopulates immediately (no rejoin needed).
@@ -967,9 +1019,11 @@ Manually verify a deployment against this list (all defaults; adjust names where
     and the panel re-opened (respawn guard).
 21. `/logout` while authenticated → back in the sandbox, login prompt, panel re-opened,
     and the resume window is gone: rejoining within the window requires the password.
-22. Session resume: when explicitly enabled, log in, disconnect, rejoin from the same IP
-    within the configured window → auto-authenticated, no quarantine (`SESSION_RESUMED`
-    logged, "Session resumed — welcome back"); restarting the server clears the window; `/logout` before
+22. Session resume: with a fresh default config it is off, so rejoining always requires
+    the password. When explicitly enabled (and the startup log shows the resume
+    warning), log in, disconnect, rejoin from the same IP within the configured window →
+    auto-authenticated, no quarantine (`SESSION_RESUMED` logged, "Session resumed —
+    welcome back"); restarting the server clears the window; `/logout` before
     disconnecting also clears it.
 23. `/changepassword oldPa55 newPa55 newPa55` → old password required, new one enforced on
     next login; wrong old password → error, nothing changes.
@@ -1041,11 +1095,17 @@ menu open, and the pre-auth container-click guard blocks grid interaction anyway
 panel's action items only carry and print the `/login` and `/register` syntax; the
 credential channel is the chat command.
 
+**The startup log warns that session resume is enabled.**
+Your config still has a non-zero `authentication.sessionPersistSeconds`. The 1.0.0 default
+was 12 hours and existing values are preserved on upgrade. Set it to `0` and run
+`/auth reload` to turn resume off, or keep it if you accept the same-IP trade-off.
+
 **Session resume: why does my friend get auto-logged-in as me?**
 They are joining from the same IP (shared household/campus/CGNAT NAT) with your username
 inside your resume window. The window is bound to UUID + name + (by default) IP, not to a
-person. Session resume is disabled by default; set `sessionPersistSeconds: 0` to turn it off
-for a server that enabled it, and remember `/logout` invalidates the window immediately.
+person. Session resume is disabled by default in 1.0.1; set `sessionPersistSeconds: 0` to turn
+it off for a server that enabled it (or that upgraded from a 1.0.0 config), and remember
+`/logout` invalidates the window immediately.
 
 **Log line says "Argon2 unavailable" / logins fail after swapping libraries.**
 The mod falls back to PBKDF2 for *new* accounts when Bouncy Castle cannot be loaded.
