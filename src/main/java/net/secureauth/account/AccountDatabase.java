@@ -15,20 +15,9 @@ import org.slf4j.LoggerFactory;
 
 /**
  * SQLite-backed account database.
- *
- * <p>SQLite is a transactional, single-file database: far more robust than any
- * flat-file format. The schema is versioned through a {@code schema_migrations}
- * table so future versions can upgrade in place. All writes run inside
- * transactions.</p>
- *
- * <p>Since 1.2.4 the connection is self-healing: a transaction that fails on a
- * broken connection (I/O hiccup, native error, poisoned transaction state —
- * previously the cause of a persistent "authentication service unavailable"
- * that only a server restart could cure) closes and reopens the SQLite
- * connection and retries the work exactly once, and every failure is logged
- * with its full root cause so the actual reason (disk full, read-only file,
- * locked database) is visible in the server log instead of being swallowed
- * by a generic player-facing message.</p>
+ * SQLite is a transactional, single-file database: far more robust than any flat-file format.
+ * The schema is versioned through a schema_migrations table so future versions can upgrade in place.
+ * All writes run inside transactions.
  */
 public final class AccountDatabase implements AutoCloseable {
 
@@ -41,7 +30,9 @@ public final class AccountDatabase implements AutoCloseable {
                 this.file = Path.of(config.storage.databasePath);
         }
 
-        /** Opens the database and applies pending migrations. */
+        /**
+         * Opens the database and applies pending migrations.
+         */
         public synchronized void open() {
                 if (connection != null) {
                         return;
@@ -69,16 +60,9 @@ public final class AccountDatabase implements AutoCloseable {
         }
 
         /**
-         * Runs {@code work} inside a transaction; rolls back on any exception.
-         *
-         * <p>Self-healing (since 1.2.4): when a transaction fails, the connection is
-         * closed, reopened (SQLite recovers WAL state on open) and the work is retried
-         * exactly once. This cures the two real-world failure classes behind the
-         * persistent "service unavailable" on {@code /auth reset}: a connection left
-         * in a broken transaction/auto-commit state by an earlier error, and transient
-         * SQLITE_BUSY/IOERR hiccups (e.g. an external backup tool touching the file).
-         * A genuinely persistent error (disk full, read-only file) still fails closed —
-         * but now it is logged with its exact SQLite cause.</p>
+         * Runs work inside a transaction; rolls back on any exception.
+         * A genuinely persistent error (disk full, read-only file) still fails closed — but now it is logged
+         * with its exact SQLite cause.
          */
         public synchronized void transactional(Consumer<Connection> work) {
                 ensureOpen();
@@ -103,7 +87,9 @@ public final class AccountDatabase implements AutoCloseable {
                 throw second;
         }
 
-        /** One transaction attempt; {@code null} on success, the failure otherwise. */
+        /**
+         * One transaction attempt; null on success, the failure otherwise.
+         */
         private RuntimeException runTransaction(Consumer<Connection> work) {
                 ensureOpen();
                 boolean oldAutoCommit = true;
@@ -133,7 +119,9 @@ public final class AccountDatabase implements AutoCloseable {
                 }
         }
 
-        /** Closes and reopens the SQLite connection (fresh WAL state, fresh transaction state). */
+        /**
+         * Closes and reopens the SQLite connection (fresh WAL state, fresh transaction state).
+         */
         private void healConnection(String reason) {
                 if (connection != null) {
                         try {
@@ -148,7 +136,9 @@ public final class AccountDatabase implements AutoCloseable {
                 open();
         }
 
-        /** Raw connection for repository reads (single writer thread: the server thread). */
+        /**
+         * Raw connection for repository reads (single writer thread: the server thread).
+         */
         public synchronized Connection connection() {
                 ensureOpen();
                 return connection;
@@ -166,9 +156,9 @@ public final class AccountDatabase implements AutoCloseable {
         }
 
         /**
-         * Periodic health probe (once per 30 s from the server tick): reopens the
-         * connection when the probe fails, so a store that broke silently heals
-         * itself instead of failing every command until the next restart.
+         * Periodic health probe (once per 30 s from the server tick): reopens the connection when the probe
+         * fails, so a store that broke silently heals itself instead of failing every command until the next
+         * restart.
          */
         public synchronized void selfCheck() {
                 if (connection == null || !healthy()) {
@@ -279,7 +269,7 @@ public final class AccountDatabase implements AutoCloseable {
 
         private void ensureOpen() {
                 if (connection == null) {
-                        // Self-healing since 1.2.4: a closed/never-opened connection is
+                        
                         // reopened on demand instead of failing closed forever (shutdown()
                         // still flips the mod off first, so this cannot resurrect the store
                         // after the server stopped).

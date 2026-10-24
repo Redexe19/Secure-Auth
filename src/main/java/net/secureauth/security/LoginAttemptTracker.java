@@ -5,10 +5,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Per-connection (per-session) attempt tracking: enforces a cooldown between
- * login attempts and counts failures within the current connection.
- * Per-account failure counters are persisted by the repository; this class is
- * purely an in-memory fast path against packet spam.
+ * Per-connection (per-session) attempt tracking: enforces a cooldown between login attempts and counts
+ * failures within the current connection.
+ * Per-account failure counters are persisted by the repository; this class is purely an in-memory fast
+ * path against packet spam.
  */
 public final class LoginAttemptTracker {
 
@@ -26,8 +26,8 @@ public final class LoginAttemptTracker {
 	}
 
 	/**
-	 * Registers an attempt for the connection. Returns true when the attempt is
-	 * allowed (cooldown expired); false when the caller must wait.
+	 * Registers an attempt for the connection.
+	 * Returns true when the attempt is allowed (cooldown expired); false when the caller must wait.
 	 */
 	public boolean tryBeginAttempt(UUID playerId) {
 		AttemptState state = sessions.computeIfAbsent(playerId, k -> new AttemptState());
@@ -42,7 +42,9 @@ public final class LoginAttemptTracker {
 		}
 	}
 
-	/** Seconds remaining until the next attempt is permitted. */
+	/**
+	 * Seconds remaining until the next attempt is permitted.
+	 */
 	public int cooldownRemainingSeconds(UUID playerId) {
 		AttemptState state = sessions.get(playerId);
 		if (state == null) {
@@ -71,7 +73,9 @@ public final class LoginAttemptTracker {
 		}
 	}
 
-	/** Clears state when the connection ends or authentication succeeds. */
+	/**
+	 * Clears state when the connection ends or authentication succeeds.
+	 */
 	public void clear(UUID playerId) {
 		sessions.remove(playerId);
 	}

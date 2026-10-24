@@ -10,8 +10,8 @@ import java.util.Optional;
 import net.secureauth.auth.PasswordService;
 
 /**
- * JDBC repository for {@link Account} rows. All mutating operations run inside
- * transactions provided by {@link AccountDatabase#transactional}.
+ * JDBC repository for Account rows.
+ * All mutating operations run inside transactions provided by transactional.
  */
 public final class AccountRepository {
 
@@ -61,7 +61,10 @@ public final class AccountRepository {
                 return out[0];
         }
 
-        /** Page through accounts for {@code /auth list}. Returns [username_display, lastLoginIso] pairs. */
+        /**
+         * Page through accounts for /auth list.
+         * Returns [username_display, lastLoginIso] pairs.
+         */
         public List<String[]> listAccounts(int offset, int limit) {
                 List<String[]> out = new ArrayList<>();
                 database.transactional(conn -> {
@@ -86,7 +89,10 @@ public final class AccountRepository {
         // Mutation
         // ------------------------------------------------------------------
 
-        /** Creates a new account; assigns the generated id. Fails if the name exists. */
+        /**
+         * Creates a new account; assigns the generated id.
+         * Fails if the name exists.
+         */
         public Account create(String usernameDisplay, String offlineUuid, PasswordService.PasswordHash hash) {
                 String norm = normalize(usernameDisplay);
                 Account account = new Account(0, norm, usernameDisplay, offlineUuid,
@@ -130,7 +136,9 @@ public final class AccountRepository {
                 return account;
         }
 
-        /** Marks a successful login: resets failures, clears lockout, updates last_login. */
+        /**
+         * Marks a successful login: resets failures, clears lockout, updates last_login.
+         */
         public void recordLoginSuccess(long accountId) {
                 database.transactional(conn -> update(conn, accountId,
                                 "UPDATE accounts SET last_login = ?, failed_attempts = 0, lockout_until = 0 WHERE id = ?",
@@ -138,7 +146,8 @@ public final class AccountRepository {
         }
 
         /**
-         * Records a failed login attempt. Returns the resulting failure count.
+         * Records a failed login attempt.
+         * Returns the resulting failure count.
          */
         public int recordLoginFailure(long accountId) {
                 final int[] count = new int[1];
@@ -162,7 +171,9 @@ public final class AccountRepository {
                 return count[0];
         }
 
-        /** Applies a temporary lockout that ends at the given epoch millisecond. */
+        /**
+         * Applies a temporary lockout that ends at the given epoch millisecond.
+         */
         public void setLockout(long accountId, long untilEpochMillis) {
                 database.transactional(conn -> update(conn, accountId,
                                 "UPDATE accounts SET lockout_until = ?, locked = 0 WHERE id = ?", untilEpochMillis));
@@ -178,7 +189,9 @@ public final class AccountRepository {
                                 "UPDATE accounts SET lockout_until = 0, failed_attempts = 0 WHERE id = ?", 0));
         }
 
-        /** Replaces the password hash of an account. */
+        /**
+         * Replaces the password hash of an account.
+         */
         public void updatePassword(long accountId, PasswordService.PasswordHash hash) {
                 database.transactional(conn -> {
                         try (PreparedStatement ps = conn.prepareStatement(
@@ -271,7 +284,9 @@ public final class AccountRepository {
                                 rs.getInt("locked") != 0);
         }
 
-        /** Canonical case-insensitive username key. */
+        /**
+         * Canonical case-insensitive username key.
+         */
         public static String normalize(String username) {
                 return username == null ? "" : username.toLowerCase(java.util.Locale.ROOT);
         }
