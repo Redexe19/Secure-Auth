@@ -47,10 +47,10 @@ import org.slf4j.LoggerFactory;
  * interaction happens through chat commands and the vanilla-compatible chest
  * panel, so completely unmodified clients can join.
  *
- * <p>When {@code authentication.enabled == false} the mod is completely inert:
+ * When {@code authentication.enabled == false} the mod is completely inert:
  * nothing is registered and every mixin passes straight through. All guards
  * fail closed — a missing manager, disabled mod or missing session always
- * counts as "not authenticated".</p>
+ * counts as "not authenticated".
  */
 public final class SecureAuth implements ModInitializer {
 
@@ -140,7 +140,7 @@ public final class SecureAuth implements ModInitializer {
                 this.enabled = true;
 
                 if (loaded.upgradedTemplateDefaults()) {
-                        LOGGER.info("SecureAuth: untouched 1.2.1 template defaults upgraded to 1.2.2 "
+                        LOGGER.info("SecureAuth: untouched legacy template defaults upgraded to current defaults "
                                         + "(platformY 64 -> 200, maxDriftBlocks 8.0 -> 1.5); set these keys "
                                         + "explicitly in secureauth.yml to pin your own values.");
                 }
@@ -167,13 +167,13 @@ public final class SecureAuth implements ModInitializer {
                         }
                 });
                 ServerTickEvents.END_SERVER_TICK.register(manager::tick);
-                // Account-store self-check (since 1.2.4): every 30 seconds the SQLite
+                // Account-store self-check: every 30 seconds the SQLite
                 // connection is probed and, when it is unhealthy (I/O hiccup, native
                 // error, broken transaction state), transparently closed and reopened.
                 // A once-broken store used to stay broken for the rest of the session —
                 // every /auth reset answered "service unavailable" — now it heals itself.
                 ServerTickEvents.END_SERVER_TICK.register(this::tickStoreHealth);
-                // Damage cancellation inside the auth dimension (since 1.2.4): the
+                // Damage cancellation inside the auth dimension: the
                 // sandbox is a waiting room. Fall damage from a mid-air rejoin, void
                 // damage below the cell, damage from anything else — none of it may
                 // ever hurt a player while they are inside secureauth:auth.
@@ -356,7 +356,7 @@ public final class SecureAuth implements ModInitializer {
                         securityLogger.log(SecurityEvent.SERVER_STOPPED, MOD_ID, "");
                 }
                 // Reset the auth dimension after everything is saved and closed (since
-                // 1.2.2 every restart regenerates the void from scratch: no chunk files,
+                // every restart regenerates the void from scratch: no chunk files,
                 // no entities, no accumulated state, no lag growth). The same wipe runs
                 // again right after the next server start, so a locked file here simply
                 // delays the reset by one boot cycle.
@@ -396,9 +396,9 @@ public final class SecureAuth implements ModInitializer {
 
         /**
          * Resets the auth dimension to a freshly generated void on every server
-         * restart (since 1.2.2, {@code worldProtection.resetOnRestart=true}).
+         * restart ( {@code worldProtection.resetOnRestart=true}).
          *
-         * <p>Every saved chunk file of the auth dimension (region, entities, poi) is
+         * Every saved chunk file of the auth dimension (region, entities, poi) is
          * deleted on SERVER_STOPPED (after the worlds are flushed and closed) and
          * again on SERVER_STARTED (before the first player can join). Because the
          * generator is flat air, regenerating is free: nothing can be lost, the
@@ -407,13 +407,13 @@ public final class SecureAuth implements ModInitializer {
          * {@code MinecraftServerMixin} wrap — so every restart produces a fresh,
          * uncorrelated, empty void. This also keeps the dimension's folder from
          * ever accumulating chunk files, so unauthenticated traffic cannot grow
-         * saved state (no lag creep from the sandbox).</p>
+         * saved state (no lag creep from the sandbox).
          *
-         * <p>A locked file (antivirus, backup tool, crash) simply delays the wipe
+         * A locked file (antivirus, backup tool, crash) simply delays the wipe
          * to the next start/stop; the runtime purifier in
          * {@code AuthWorldManager} heals whatever a failed wipe leaves behind, so
          * the pure-void contract holds regardless. No marker file is used: the
-         * wipe is unconditional and idempotent.</p>
+         * wipe is unconditional and idempotent.
          */
         private void clearAuthDimension(MinecraftServer server) {
                 if (!("auth_dimension".equals(config.worldProtection.isolationMode)
@@ -424,7 +424,7 @@ public final class SecureAuth implements ModInitializer {
                                 .resolve("dimensions").resolve("secureauth").resolve("auth");
                 int removed = 0;
                 int failed = 0;
-                // Clean up the 1.2.1 migration marker if a previous version left one.
+                // Clean up the migration marker if a previous version left one.
                 try {
                         Files.deleteIfExists(dimDir.resolve("void-v3.marker"));
                 } catch (IOException ignored) {

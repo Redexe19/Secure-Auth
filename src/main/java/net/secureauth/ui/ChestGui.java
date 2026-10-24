@@ -24,20 +24,20 @@ import java.util.concurrent.TimeUnit;
  * Base class for SecureAuth's server-built chest menus — the "economy shop
  * plugin" GUI pattern for vanilla clients.
  *
- * <p>The server opens a menu whose {@link MenuType} is one of the vanilla
+ * The server opens a menu whose {@link MenuType} is one of the vanilla
  * generic 9xN chest types, so an unmodified client renders it as an ordinary
  * chest screen. Clicks arrive as ordinary container-click packets; this class
  * intercepts them (never calling {@code super.clicked}) so the virtual button
  * items can never be picked up, moved or duplicated. The vanilla click
  * protocol self-corrects the client's optimistic prediction, so a swallowed
- * click simply snaps back on the player's screen.</p>
+ * click simply snaps back on the player's screen.
  *
- * <p>Every item name and lore line is resolved server-side into literal text
+ * Every item name and lore line is resolved server-side into literal text
  * (vanilla clients have no {@code auth.*} translations — translatable
- * components would render as raw keys inside the chest screen).</p>
+ * components would render as raw keys inside the chest screen).
  *
- * <p>Every subclass is viewer-bound ({@link #stillValid} fails for anyone
- * else) and rate-limited against click spam.</p>
+ * Every subclass is viewer-bound ({@link #stillValid} fails for anyone
+ * else) and rate-limited against click spam.
  */
 public abstract class ChestGui extends ChestMenu {
 
@@ -144,7 +144,7 @@ public abstract class ChestGui extends ChestMenu {
                 if (slotIndex >= 0 && slotIndex < gridSize) {
                         onClick(slotIndex);
                 }
-                // Deliberately never super.clicked(): the virtual items are buttons,
+                // Deliberately never super.clicked: the virtual items are buttons,
                 // and the client's optimistic prediction is corrected by the vanilla
                 // sync protocol that runs right after this method returns.
         }
@@ -196,7 +196,7 @@ public abstract class ChestGui extends ChestMenu {
                 sync();
         }
 
-        /** (Re)builds the grid contents. Called on open and on every {@link #refresh()}. */
+        /** (Re)builds the grid contents. Called on open and on every {@link #refresh}. */
         protected abstract void build();
 
         /** Menu title shown above the chest grid. */

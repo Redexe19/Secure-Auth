@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Item-pickup guard for the pre-authentication sandbox (fail closed).
  *
- * <p><b>What it blocks and why.</b> {@code playerTouch(Player)} is the single
+ * What it blocks and why. {@code playerTouch(Player)} is the single
  * vanilla entry point through which a player collects a dropped
  * {@link ItemEntity} (verified on the 26.2 game-server jar: public, returns
  * {@code void}, descriptor {@code playerTouch(Lnet/minecraft/world/entity/player/Player;)V}).
@@ -24,21 +24,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * HEAD: unauthenticated players can neither loot the auth area nor hoover up
  * items dropped by other players near the quarantine boundary. Cancelling the
  * method entirely also skips the pickup delay bookkeeping, so the entity
- * stays available for legitimately authenticated players.</p>
+ * stays available for legitimately authenticated players.
  *
- * <p><b>Fail closed.</b> Only {@link ServerPlayer} instances are checked
+ * Fail closed. Only {@link ServerPlayer} instances are checked
  * (client-side copies of the level never present a server player, so the
  * mixin is inert on the client even in a shared singleplayer JVM). The state
  * comes from {@link AuthManager#isAuthenticated(ServerPlayer)}, which treats
  * a missing session as unauthenticated. When the mod is absent, disabled, or
  * its manager is shut down, pickups behave exactly like vanilla. No feedback
  * is sent: item pickup is not a deliberate player action, and the touch path
- * runs every tick for nearby entities.</p>
+ * runs every tick for nearby entities.
  *
- * <p><b>Failure policy.</b> No exception ever escapes into the entity tick.
+ * Failure policy. No exception ever escapes into the entity tick.
  * An unexpected internal error fails closed (pickup cancelled) with a debug
  * log — item flow into an unauthenticated inventory is part of the sandbox
- * boundary.</p>
+ * boundary.
  */
 @Mixin(ItemEntity.class)
 public abstract class ItemEntityMixin {

@@ -51,10 +51,10 @@ public final class OriginalLocation {
          * the auth dimension (rejoin after a timeout/quit while quarantined): the
          * auth area must never become the restored "original location".
          *
-         * <p>Since 1.2.3 the flags are hard-coded to {@code false}: this fallback
+         * the flags are hard-coded to {@code false}: this fallback
          * is only built for a player who is currently quarantined, whose live
          * invulnerable/no-gravity flags ARE the sandbox flags — copying them
-         * would restore a permanently floating, invulnerable player after login.</p>
+         * would restore a permanently floating, invulnerable player after login.
          */
         static OriginalLocation respawn(ResourceKey<Level> dimension, double x, double y, double z,
                         ServerPlayer player) {
@@ -66,7 +66,7 @@ public final class OriginalLocation {
          * Returns a copy with the quarantine signature (invulnerable AND
          * no-gravity — the exact pair the sandbox applies) cleared. A player who
          * rejoins with that pair saved is carrying leftover sandbox state from a
-         * pre-1.2.3 disconnect (the flags used to be written into the player's
+         * older player disconnect (the flags used to be written into the player's
          * save data); restoring them would keep the player floating and
          * invulnerable after login. A player who genuinely plays with both flags
          * set at once loses them once, at the next login.

@@ -28,13 +28,13 @@ import net.secureauth.security.SecurityEvent;
  * The administrator's chest panel — an economy-shop-style GUI over the live
  * session table, opened with {@code /auth panel} (admin permission).
  *
- * <p>The first page lists every online player as a head whose lore carries the
+ * The first page lists every online player as a head whose lore carries the
  * live authentication state. Clicking a head opens the detail page with the
  * same actions the {@code /auth lock|unlock|forcelogout} subcommands offer,
  * plus the password-reset hint (a secret can never be typed into a chest
  * grid, so the reset action prints the command into chat instead). Every
  * action routes through {@link AuthManager} and lands in the security log
- * exactly like its command twin.</p>
+ * exactly like its command twin.
  */
 public final class AdminPanel extends ChestGui {
 
@@ -336,7 +336,7 @@ public final class AdminPanel extends ChestGui {
                         try {
                                 manager.repository().setLocked(account.id(), lock);
                         } catch (StoreException e) {
-                                // Root cause into the logs (since 1.2.4): a generic player-facing
+                                // Root cause into the logs: a generic player-facing
                                 // message alone made flaky store failures undiagnosable.
                                 manager.logger().log(SecurityEvent.DATABASE_UNAVAILABLE,
                                                 admin.getGameProfile().name(), null, admin.getIpAddress(),
