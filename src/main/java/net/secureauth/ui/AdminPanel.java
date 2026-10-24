@@ -2,12 +2,10 @@ package net.secureauth.ui;
 
 import java.util.List;
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.component.DataComponents;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.permissions.Permission;
-import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -15,7 +13,7 @@ import net.minecraft.world.MenuProvider;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.ResolvableProfile;
+
 import net.secureauth.account.Account;
 import net.secureauth.account.StoreException;
 import net.secureauth.auth.AuthManager;
@@ -25,20 +23,19 @@ import net.secureauth.lang.Lang;
 import net.secureauth.security.SecurityEvent;
 
 /**
- * The administrator's chest panel — an economy-shop-style GUI over the live
- * session table, opened with {@code /auth panel} (admin permission).
- *
- * <p>The first page lists every online player as a head whose lore carries the
- * live authentication state. Clicking a head opens the detail page with the
- * same actions the {@code /auth lock|unlock|forcelogout} subcommands offer,
- * plus the password-reset hint (a secret can never be typed into a chest
- * grid, so the reset action prints the command into chat instead). Every
- * action routes through {@link AuthManager} and lands in the security log
- * exactly like its command twin.</p>
+ * The administrator's chest panel — an economy-shop-style GUI over the live session table, opened with
+ * /auth panel (admin permission).
+ * The first page lists every online player as a head whose lore carries the live authentication state.
+ * Clicking a head opens the detail page with the same actions the /auth lock|unlock|forcelogout
+ * subcommands offer, plus the password-reset hint (a secret can never be typed into a chest grid, so
+ * the reset action prints the command into chat instead).
+ * Every action routes through AuthManager and lands in the security log exactly like its command twin.
  */
 public final class AdminPanel extends ChestGui {
 
-        /** Online players shown per page (rows 1-5 of the 6-row grid). */
+        /**
+         * Online players shown per page (rows 1-5 of the 6-row grid).
+         */
         private static final int PLAYERS_PER_PAGE = 45;
 
         private static final int SLOT_SUMMARY = 4;
@@ -58,7 +55,9 @@ public final class AdminPanel extends ChestGui {
                 this.page = page;
         }
 
-        /** Opens the admin panel (page 0) for an administrator. */
+        /**
+         * Opens the admin panel (page 0) for an administrator.
+         */
         public static void open(AuthManager manager, ServerPlayer admin) {
                 openPage(manager, admin, 0);
         }
@@ -78,7 +77,7 @@ public final class AdminPanel extends ChestGui {
                                                 server, page);
                                 panel.build();
                                 manager.logger().log(SecurityEvent.PANEL_OPENED,
-                                                admin.getGameProfile().name(), admin.getIpAddress(), "admin");
+                                                admin.getGameProfile().getName(), admin.getIpAddress(), "admin");
                                 return panel;
                         }
                 });
@@ -141,12 +140,12 @@ public final class AdminPanel extends ChestGui {
                                 : locked ? Lang.plain(viewer(), "auth.panel.status.locked")
                                                 : Lang.plain(viewer(), "auth.panel.status.awaiting");
                 ItemStack head = named(Items.PLAYER_HEAD,
-                                Component.literal(target.getGameProfile().name()).withStyle(ChatFormatting.WHITE),
+                                Component.literal(target.getGameProfile().getName()).withStyle(ChatFormatting.WHITE),
                                 lore(
                                                 Lang.plain(viewer(), "auth.admin.detail.state").append(state),
                                                 line("auth.admin.detail.attempts", Math.max(0, maxAttempts - failed)),
                                                 line("auth.admin.detail.ip", session == null ? "?" : session.ip)));
-                head.set(DataComponents.PROFILE, ResolvableProfile.createResolved(target.getGameProfile()));
+                setHeadProfile(head, target.getGameProfile());
                 return head;
         }
 
@@ -180,16 +179,17 @@ public final class AdminPanel extends ChestGui {
 
         @Override
         protected void onClickSpam() {
-                manager.logger().log(SecurityEvent.INVALID_AUTH_PACKET, viewer().getGameProfile().name(),
+                manager.logger().log(SecurityEvent.INVALID_AUTH_PACKET, viewer().getGameProfile().getName(),
                                 viewer().getIpAddress(), "admin_panel_click_spam");
         }
 
-        /** Admin gate re-checked per click: the same check as /auth panel. */
+        /**
+         * Admin gate re-checked per click: the same check as /auth panel.
+         */
         private boolean isAdmin(ServerPlayer admin) {
                 int level = Math.min(4, Math.max(1, manager.config().administration.adminOpLevel));
                 try {
-                        return admin.permissions().hasPermission(
-                                        new Permission.HasCommandLevel(PermissionLevel.byId(level)));
+                        return admin.hasPermissions(level);
                 } catch (RuntimeException e) {
                         return false;
                 }
@@ -204,7 +204,9 @@ public final class AdminPanel extends ChestGui {
         // Detail page
         // ------------------------------------------------------------------
 
-        /** The per-player detail page reached by clicking a head. */
+        /**
+         * The per-player detail page reached by clicking a head.
+         */
         static final class AdminPlayerDetail extends ChestGui {
 
                 private static final int SLOT_HEAD = 4;
@@ -230,7 +232,7 @@ public final class AdminPanel extends ChestGui {
                                 public Component getDisplayName() {
                                         // Literal, server-resolved title (vanilla clients have no auth.* translations).
                                         return Lang.plain(admin, "auth.admin.detail.title",
-                                                        target.getGameProfile().name());
+                                                        target.getGameProfile().getName());
                                 }
 
                                 @Override
@@ -258,7 +260,7 @@ public final class AdminPanel extends ChestGui {
                                                         : Lang.plain(viewer(), "auth.panel.status.awaiting");
 
                         ItemStack head = named(Items.PLAYER_HEAD,
-                                        Component.literal(target.getGameProfile().name()).withStyle(ChatFormatting.WHITE),
+                                        Component.literal(target.getGameProfile().getName()).withStyle(ChatFormatting.WHITE),
                                         lore(
                                                         Lang.plain(viewer(), "auth.admin.detail.state").append(state),
                                                         line("auth.admin.detail.attempts",
@@ -267,7 +269,7 @@ public final class AdminPanel extends ChestGui {
                                                         line("auth.admin.detail.ip", session == null ? "?" : session.ip),
                                                         line("auth.admin.detail.algorithm",
                                                                         account == null ? "-" : account.algorithm())));
-                        head.set(DataComponents.PROFILE, ResolvableProfile.createResolved(target.getGameProfile()));
+                        setHeadProfile(head, target.getGameProfile());
                         set(SLOT_HEAD, head);
 
                         set(SLOT_LOCK, locked ? fillerPane()
@@ -299,7 +301,7 @@ public final class AdminPanel extends ChestGui {
                                 admin.closeContainer();
                                 return;
                         }
-                        String targetName = target.getGameProfile().name();
+                        String targetName = target.getGameProfile().getName();
                         String targetNorm = net.secureauth.account.AccountRepository.normalize(targetName);
                         switch (slot) {
                                 case SLOT_LOCK -> setLocked(admin, true);
@@ -309,7 +311,7 @@ public final class AdminPanel extends ChestGui {
                                         if (session != null && session.authenticated()) {
                                                 manager.logout(target);
                                                 manager.logger().log(SecurityEvent.ADMIN_FORCE_LOGOUT,
-                                                                admin.getGameProfile().name(), targetNorm,
+                                                                admin.getGameProfile().getName(), targetNorm,
                                                                 admin.getIpAddress(), "panel");
                                                 manager.sendTranslated(admin, "auth.admin.forcelogout.success", targetName);
                                         }
@@ -330,16 +332,16 @@ public final class AdminPanel extends ChestGui {
                         AuthSession session = manager.session(target);
                         Account account = session == null ? null : session.account;
                         if (account == null) {
-                                manager.sendTranslated(admin, "auth.admin.unknownPlayer", target.getGameProfile().name());
+                                manager.sendTranslated(admin, "auth.admin.unknownPlayer", target.getGameProfile().getName());
                                 return;
                         }
                         try {
                                 manager.repository().setLocked(account.id(), lock);
                         } catch (StoreException e) {
-                                // Root cause into the logs (since 1.2.4): a generic player-facing
+                                
                                 // message alone made flaky store failures undiagnosable.
                                 manager.logger().log(SecurityEvent.DATABASE_UNAVAILABLE,
-                                                admin.getGameProfile().name(), null, admin.getIpAddress(),
+                                                admin.getGameProfile().getName(), null, admin.getIpAddress(),
                                                 "panel_lock:" + net.secureauth.account.StoreException.describe(e));
                                 manager.sendTranslated(admin, "auth.storage.unavailable");
                                 return;
@@ -362,19 +364,20 @@ public final class AdminPanel extends ChestGui {
                         }
                         manager.logger().log(lock ? SecurityEvent.ACCOUNT_PERMANENTLY_LOCKED
                                         : SecurityEvent.ACCOUNT_UNLOCKED,
-                                        admin.getGameProfile().name(), account.usernameNorm(), admin.getIpAddress(),
+                                        admin.getGameProfile().getName(), account.usernameNorm(), admin.getIpAddress(),
                                         "panel");
                         manager.sendTranslated(admin, lock ? "auth.admin.lock.success" : "auth.admin.unlock.success",
                                         account.usernameDisplay());
                         refresh();
                 }
 
-                /** Admin gate re-checked per click: the same check as /auth panel. */
+                /**
+                 * Admin gate re-checked per click: the same check as /auth panel.
+                 */
                 private boolean isAdmin(ServerPlayer admin) {
                         int level = Math.min(4, Math.max(1, manager.config().administration.adminOpLevel));
                         try {
-                                return admin.permissions().hasPermission(
-                                                new Permission.HasCommandLevel(PermissionLevel.byId(level)));
+                                return admin.hasPermissions(level);
                         } catch (RuntimeException e) {
                                 return false;
                         }
@@ -382,13 +385,13 @@ public final class AdminPanel extends ChestGui {
 
                 @Override
                 protected void onClickSpam() {
-                        manager.logger().log(SecurityEvent.INVALID_AUTH_PACKET, viewer().getGameProfile().name(),
+                        manager.logger().log(SecurityEvent.INVALID_AUTH_PACKET, viewer().getGameProfile().getName(),
                                         viewer().getIpAddress(), "admin_detail_click_spam");
                 }
 
                 @Override
                 public Component title() {
-                        return Lang.plain(viewer(), "auth.admin.detail.title", target.getGameProfile().name());
+                        return Lang.plain(viewer(), "auth.admin.detail.title", target.getGameProfile().getName());
                 }
         }
 }

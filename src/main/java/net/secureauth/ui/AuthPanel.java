@@ -1,7 +1,7 @@
 package net.secureauth.ui;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.core.component.DataComponents;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
@@ -10,7 +10,7 @@ import net.minecraft.world.MenuProvider;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.component.ResolvableProfile;
+
 import net.secureauth.auth.AuthManager;
 import net.secureauth.auth.AuthSession;
 import net.secureauth.auth.AuthState;
@@ -18,22 +18,15 @@ import net.secureauth.lang.Lang;
 import net.secureauth.security.SecurityEvent;
 
 /**
- * The player-facing authentication panel: a 27-slot chest menu that works on
- * completely vanilla clients.
- *
- * <p>It replaces the former modded-client auth screen. The panel is the
- * "status + guidance" surface — the actual password is typed in chat with
- * {@code /login} or {@code /register} (a chest grid cannot capture a secret).
- * Clicking the action items sends the matching command hint to chat, and the
- * panel refreshes itself whenever the session state changes (attempts left,
- * lockout countdown, deadline) while it stays open.</p>
- *
- * <p>Layout (3 rows):</p>
- * <pre>
- *   [ filler x4 ] [ player head: account status ] [ filler x4 ]
- *   [ filler x2 ] [ book: log in ] [ barrier: locked ] [ writable book: register ] [ filler x3 ]
- *   [ filler x4 ] [ clock: time left ] [ filler x3 ]
- * </pre>
+ * The player-facing authentication panel: a 27-slot chest menu that works on completely vanilla
+ * clients.
+ * The panel is the "status + guidance" surface — the actual password is typed in chat with /login or
+ * /register (a chest grid cannot capture a secret).
+ * Clicking the action items sends the matching command hint to chat, and the panel refreshes itself
+ * whenever the session state changes (attempts left, lockout countdown, deadline) while it stays open.
+ * Layout (3 rows): [ filler x4 ] [ player head: account status ] [ filler x4 ] [ filler x2 ] [ book:
+ * log in ] [ barrier: locked ] [ writable book: register ] [ filler x3 ] [ filler x4 ] [ clock: time
+ * left ] [ filler x3 ]
  */
 public final class AuthPanel extends ChestGui {
 
@@ -43,6 +36,7 @@ public final class AuthPanel extends ChestGui {
         private static final int SLOT_LOCKED = 13;
         private static final int SLOT_REGISTER = 15;
         private static final int SLOT_DEADLINE = 22;
+        private static final int SLOT_PASSWORD_SAFETY = 26;
 
         private final AuthManager manager;
         private final AuthSession session;
@@ -53,7 +47,9 @@ public final class AuthPanel extends ChestGui {
                 this.session = session;
         }
 
-        /** Opens the panel for the session's player. */
+        /**
+         * Opens the panel for the session's player.
+         */
         public static void open(AuthManager manager, AuthSession session) {
                 ServerPlayer player = session.player;
                 session.openPanel = null;
@@ -77,7 +73,9 @@ public final class AuthPanel extends ChestGui {
                 });
         }
 
-        /** Refreshes the panel if this player still has it open. */
+        /**
+         * Refreshes the panel if this player still has it open.
+         */
         public static void refresh(AuthSession session) {
                 AuthPanel panel = session.openPanel;
                 if (panel != null) {
@@ -85,7 +83,9 @@ public final class AuthPanel extends ChestGui {
                 }
         }
 
-        /** Closes the panel if open (called when authentication succeeds). */
+        /**
+         * Closes the panel if open (called when authentication succeeds).
+         */
         public static void close(AuthSession session) {
                 if (session.openPanel != null && session.player.containerMenu == session.openPanel) {
                         session.player.closeContainer();
@@ -122,7 +122,7 @@ public final class AuthPanel extends ChestGui {
                                                                 Math.max(0, maxAttempts
                                                                                 - (session.account == null ? 0
                                                                                                 : session.account.failedAttempts())))));
-                head.set(DataComponents.PROFILE, ResolvableProfile.createResolved(session.player.getGameProfile()));
+                setHeadProfile(head, session.player.getGameProfile());
                 set(SLOT_HEAD, head);
 
                 // --- Login / register action items -------------------------------------
@@ -153,13 +153,13 @@ public final class AuthPanel extends ChestGui {
                                                 Lang.plain(session.player, "auth.panel.register.name")
                                                                 .withStyle(ChatFormatting.GREEN),
                                                 lore(line("auth.panel.register.lore1"), line("auth.panel.register.lore2")));
-                                register.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+
                                 set(SLOT_REGISTER, register);
                         } else {
                                 ItemStack login = named(Items.BOOK,
                                                 Lang.plain(session.player, "auth.panel.login.name").withStyle(ChatFormatting.GREEN),
                                                 lore(line("auth.panel.login.lore1"), line("auth.panel.login.lore2")));
-                                login.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+
                                 set(SLOT_LOGIN, login);
                                 set(SLOT_REGISTER, fillerPane());
                         }
@@ -175,6 +175,12 @@ public final class AuthPanel extends ChestGui {
                         set(SLOT_DEADLINE, fillerPane());
                 }
 
+                set(SLOT_PASSWORD_SAFETY, named(Items.PAPER,
+                                Lang.plain(session.player, "auth.panel.passwordSafety.name")
+                                                .withStyle(ChatFormatting.YELLOW),
+                                lore(line("auth.panel.passwordSafety.lore1"),
+                                                line("auth.panel.passwordSafety.lore2"))));
+
                 fill();
         }
 
@@ -184,6 +190,8 @@ public final class AuthPanel extends ChestGui {
                         manager.sendTranslated(viewer(), "auth.panel.login.hint");
                 } else if (slot == SLOT_REGISTER && session.account == null && !sessionStateLocked()) {
                         manager.sendTranslated(viewer(), "auth.panel.register.hint");
+                } else if (slot == SLOT_PASSWORD_SAFETY) {
+                        manager.sendTranslated(viewer(), "auth.panel.passwordSafety.hint");
                 }
                 // All other slots are informational.
         }
