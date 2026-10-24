@@ -26,24 +26,24 @@ import org.slf4j.LoggerFactory;
 /**
  * Server-side message resolver.
  *
- * <p>SecureAuth is a <strong>server-side only</strong> mod: the vanilla client
+ * SecureAuth is a <strong>server-side only</strong> mod: the vanilla client
  * does not know any {@code auth.*} translation key, so every player-visible
  * string must be resolved <em>on the server</em> and sent as a literal
  * component. Translatable components are unusable here — a vanilla client
  * would render the raw key (and in 26.2 the {@code system_chat} encoder
- * rejects malformed argument lists outright).</p>
+ * rejects malformed argument lists outright).
  *
- * <p>This class loads the very same {@code assets/secureauth/lang/*.json}
+ * This class loads the very same {@code assets/secureauth/lang/*.json}
  * catalogs that ship inside the mod jar, resolves them per player (using the
  * client language reported in the handshake {@code ClientInformation}), and
  * formats them with {@link String#format}-style placeholders. Legacy
  * {@code §x} color codes embedded in the values are rendered by vanilla
- * clients inside literal text, so colors keep working.</p>
+ * clients inside literal text, so colors keep working.
  *
- * <p>Fail-safe by design: a missing catalog, a missing key, a broken format
+ * Fail-safe by design: a missing catalog, a missing key, a broken format
  * pattern or a {@code null} argument never throws — the worst outcome is the
  * raw key or a partially formatted line, never a dropped packet or a crashed
- * tick.</p>
+ * tick.
  */
 public final class Lang {
 

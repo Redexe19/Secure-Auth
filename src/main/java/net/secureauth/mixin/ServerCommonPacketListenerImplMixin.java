@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Outgoing world-information filter for unauthenticated viewers.
  *
- * <p><b>What it blocks.</b> Both {@code send} overloads of the common packet
+ * What it blocks. Both {@code send} overloads of the common packet
  * listener are intercepted at HEAD; when
  * {@link net.secureauth.network.PacketFilterService#shouldDrop} decides the
  * packet would leak real-world information to a specific unauthenticated
@@ -26,9 +26,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * maps, optionally scoreboards and custom payloads), the send is cancelled and
  * the packet never reaches the connection. SecureAuth's own packets (auth
  * prompts, the tab-list hiding packets, ...) are exempt via
- * {@link PacketBypass#isBypassed()}.</p>
+ * {@link PacketBypass#isBypassed}.
  *
- * <p><b>Verified targets</b> (minijavap + {@code javap -c} on the 26.2
+ * Verified targets (minijavap + {@code javap -c} on the 26.2
  * game-server jar): both methods are public, return {@code void} and have the
  * exact descriptors {@code send(Lnet/minecraft/network/protocol/Packet;)V} and
  * {@code send(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketCallbacks;)V}.
@@ -37,10 +37,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * more in the delegate — {@code shouldDrop} is a pure, idempotent lookup, so
  * the double check is harmless and keeps both entry points covered even if the
  * delegation changes in a future version. Because both targets return
- * {@code void}, cancellation uses {@code ci.cancel()} (plain
- * {@code CallbackInfo}; there is no {@code setReturnValue} on it).</p>
+ * {@code void}, cancellation uses {@code ci.cancel} (plain
+ * {@code CallbackInfo}; there is no {@code setReturnValue} on it).
  *
- * <p><b>Fail-open by design — and why that is safe here.</b> This filter is
+ * Fail-open by design — and why that is safe here. This filter is
  * information isolation, not the security boundary: it only hides cosmetic
  * world data. {@code shouldDrop} itself returns "pass" when the viewer has no
  * session or is authenticated, and this mixin deliberately mirrors that
@@ -51,23 +51,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * actual fail-closed boundary — no movement, no actions, no commands, no item
  * pickup without authentication — is enforced by the other three mixins and by
  * {@code AuthManager.tick}/{@code AuthWorldManager.tick}. Nothing is logged
- * from this hot path (it runs for every outgoing packet) to avoid spam.</p>
+ * from this hot path (it runs for every outgoing packet) to avoid spam.
  *
- * <p><b>Guard order</b> (all null-safe, no exceptions ever escape):</p>
+ * Guard order (all null-safe, no exceptions ever escape):
  * <ol>
- *   <li>{@link PacketBypass#isBypassed()} — SecureAuth's own sends pass.</li>
- *   <li>{@link SecureAuth#get()} {@code null} or {@code enabled() == false} — inert mod.</li>
- *   <li>{@code authManager() == null} — disabled/shutting-down mod.</li>
- *   <li>{@code (Object)this instanceof ServerGamePacketListenerImpl} — only the
- *       play phase carries world information; configuration/login listeners pass.</li>
- *   <li>{@link net.secureauth.network.PacketFilterService#shouldDrop} decides
- *       (it re-checks bypass, listener type, {@code player}, session state and
- *       the config switches).</li>
+ * <li>{@link PacketBypass#isBypassed} — SecureAuth's own sends pass.</li>
+ * <li>{@link SecureAuth#get} {@code null} or {@code enabled == false} — inert mod.</li>
+ * <li>{@code authManager == null} — disabled/shutting-down mod.</li>
+ * <li>{@code (Object)this instanceof ServerGamePacketListenerImpl} — only the
+ * play phase carries world information; configuration/login listeners pass.</li>
+ * <li>{@link net.secureauth.network.PacketFilterService#shouldDrop} decides
+ * (it re-checks bypass, listener type, {@code player}, session state and
+ * the config switches).</li>
  * </ol>
  *
- * <p>Unexpected internal errors are caught, logged at debug level and treated
+ * Unexpected internal errors are caught, logged at debug level and treated
  * as "pass": an error in the isolation layer must never break packet delivery
- * for everyone; the fail-closed boundary lives elsewhere.</p>
+ * for everyone; the fail-closed boundary lives elsewhere.
  */
 @Mixin(ServerCommonNetworkHandler.class)
 public abstract class ServerCommonPacketListenerImplMixin {

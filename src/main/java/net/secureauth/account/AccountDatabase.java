@@ -16,19 +16,19 @@ import org.slf4j.LoggerFactory;
 /**
  * SQLite-backed account database.
  *
- * <p>SQLite is a transactional, single-file database: far more robust than any
+ * SQLite is a transactional, single-file database: far more robust than any
  * flat-file format. The schema is versioned through a {@code schema_migrations}
  * table so future versions can upgrade in place. All writes run inside
- * transactions.</p>
+ * transactions.
  *
- * <p>Since 1.2.4 the connection is self-healing: a transaction that fails on a
+ * the connection is self-healing: a transaction that fails on a
  * broken connection (I/O hiccup, native error, poisoned transaction state —
  * previously the cause of a persistent "authentication service unavailable"
  * that only a server restart could cure) closes and reopens the SQLite
  * connection and retries the work exactly once, and every failure is logged
  * with its full root cause so the actual reason (disk full, read-only file,
  * locked database) is visible in the server log instead of being swallowed
- * by a generic player-facing message.</p>
+ * by a generic player-facing message.
  */
 public final class AccountDatabase implements AutoCloseable {
 
@@ -71,14 +71,14 @@ public final class AccountDatabase implements AutoCloseable {
         /**
          * Runs {@code work} inside a transaction; rolls back on any exception.
          *
-         * <p>Self-healing (since 1.2.4): when a transaction fails, the connection is
+         * Self-healing: when a transaction fails, the connection is
          * closed, reopened (SQLite recovers WAL state on open) and the work is retried
          * exactly once. This cures the two real-world failure classes behind the
          * persistent "service unavailable" on {@code /auth reset}: a connection left
          * in a broken transaction/auto-commit state by an earlier error, and transient
          * SQLITE_BUSY/IOERR hiccups (e.g. an external backup tool touching the file).
          * A genuinely persistent error (disk full, read-only file) still fails closed —
-         * but now it is logged with its exact SQLite cause.</p>
+         * but now it is logged with its exact SQLite cause.
          */
         public synchronized void transactional(Consumer<Connection> work) {
                 ensureOpen();
@@ -279,8 +279,8 @@ public final class AccountDatabase implements AutoCloseable {
 
         private void ensureOpen() {
                 if (connection == null) {
-                        // Self-healing since 1.2.4: a closed/never-opened connection is
-                        // reopened on demand instead of failing closed forever (shutdown()
+                        // Self-healing: a closed/never-opened connection is
+                        // reopened on demand instead of failing closed forever (shutdown
                         // still flips the mod off first, so this cannot resurrect the store
                         // after the server stopped).
                         open();

@@ -31,28 +31,28 @@ import net.secureauth.world.AuthWorldManager;
 /**
  * All SecureAuth commands.
  *
- * <p>User commands ({@code /register}, {@code /login}, {@code /logout},
+ * User commands ({@code /register}, {@code /login}, {@code /logout},
  * {@code /changepassword}, {@code /unregister}) are thin forwarders: every
  * piece of feedback for them is produced by {@link AuthManager}, which sends
  * chat and GUI results itself. This class only adds argument validation
- * (password confirmation) and the session-state gate for registration.</p>
+ * (password confirmation) and the session-state gate for registration.
  *
- * <p>{@code /auth …} is the administration interface, gated by the vanilla
+ * {@code /auth …} is the administration interface, gated by the vanilla
  * permission level configured in {@code administration.adminOpLevel}. Its
  * feedback is sent through {@link AuthManager#sendTranslated} when the
  * administrator is a player, and as plain system messages when it is the
- * console.</p>
+ * console.
  *
- * <p>Security rules enforced here:</p>
+ * Security rules enforced here:
  * <ul>
- *   <li>Password arguments are {@code word()} arguments, never greedy — the
- *       confirmation argument would otherwise swallow the rest of the line.</li>
- *   <li>No feedback path ever echoes a password back to the sender.</li>
- *   <li>Every repository access is wrapped so a database failure degrades into
- *       a translated "service unavailable" reply instead of an exception
- *       bubbling into the command dispatcher (fail closed, never fail open).</li>
- *   <li>Missing session, disabled mod or a null manager is treated as
- *       "not authenticated" — never as success.</li>
+ * <li>Password arguments are {@code word} arguments, never greedy — the
+ * confirmation argument would otherwise swallow the rest of the line.</li>
+ * <li>No feedback path ever echoes a password back to the sender.</li>
+ * <li>Every repository access is wrapped so a database failure degrades into
+ * a translated "service unavailable" reply instead of an exception
+ * bubbling into the command dispatcher (fail closed, never fail open).</li>
+ * <li>Missing session, disabled mod or a null manager is treated as
+ * "not authenticated" — never as success.</li>
  * </ul>
  */
 public final class AuthCommands {
@@ -634,7 +634,7 @@ public final class AuthCommands {
         }
 
         /**
-         * Journals a store failure with its ROOT CAUSE (since 1.2.4). Previously the
+         * Journals a store failure with its ROOT CAUSE. Previously the
          * admin commands swallowed StoreException behind a generic "service
          * unavailable" with nothing in any log — a flaky reset was undiagnosable
          * (was it a full disk? a locked file? a broken connection?). Now the exact
