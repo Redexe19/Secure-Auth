@@ -8,8 +8,8 @@ import net.secureauth.security.SecurityEvent;
 import net.secureauth.security.SecurityLogger;
 
 /**
- * Registration flow: validates the password policy, enforces "new accounts
- * only", stores the Argon2id hash and (optionally) authenticates immediately.
+ * Registration flow: validates the password policy, enforces "new accounts only", stores the Argon2id
+ * hash and (optionally) authenticates immediately.
  */
 public final class RegistrationService {
 
@@ -40,8 +40,8 @@ public final class RegistrationService {
 	}
 
 	/**
-	 * Registers the account for {@code session}. On success the session account
-	 * is attached; the caller decides whether to run the post-registration
+	 * Registers the account for session.
+	 * On success the session account is attached; the caller decides whether to run the post-registration
 	 * authentication immediately.
 	 */
 	public Result register(AuthSession session, String password, String confirmation) {

@@ -14,31 +14,31 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Entity-birth guard for the authentication dimension (fail closed).
- *
- * <p><b>What it blocks and why.</b> {@code addFreshEntity(Entity)} is the single
- * public vanilla entry point through which every server-side entity enters a
- * {@link ServerLevel} (natural mob spawns, insomnia phantoms, wandering traders,
- * dropped items, projectiles, TNT, falling blocks, mod-spawned creatures…).
- * The auth dimension must contain nothing but quarantined players and their
- * stone platform, so any non-player entity addition to {@code secureauth:auth}
- * is rejected at HEAD and the caller sees the same result as a refused spawn
- * ({@code false}). Entities already saved inside legacy chunk files are removed
- * separately by the periodic sweep in {@link AuthWorldManager}.</p>
- *
- * <p><b>Fail closed.</b> The static guard flag defaults to {@code true}, so even
- * a partially initialised mod refuses entities in the auth dimension. When the
- * mod is fully disabled ({@code authentication.enabled=false}) or the user opts
- * out via {@code worldProtection.clearAuthEntities=false}, the mixin passes
- * straight through and the dimension behaves like any vanilla level. Players
- * are always allowed — they are the whole point of the dimension.</p>
- *
- * <p><b>Failure policy.</b> No exception ever escapes into the entity-add path;
- * an unexpected internal error fails closed (entity refused) with a debug log.</p>
+ * What it blocks and why. addFreshEntity(Entity) is the single public vanilla entry point through
+ * which every server-side entity enters a ServerLevel (natural mob spawns, insomnia phantoms,
+ * wandering traders, dropped items, projectiles, TNT, falling blocks, mod-spawned creatures…).
+ * The auth dimension must contain nothing but quarantined players and their stone platform, so any
+ * non-player entity addition to secureauth:auth is rejected at HEAD and the caller sees the same
+ * result as a refused spawn (false).
+ * Entities already saved inside legacy chunk files are removed separately by the periodic sweep in
+ * AuthWorldManager.
+ * Fail closed.
+ * The static guard flag defaults to true, so even a partially initialised mod refuses entities in the
+ * auth dimension.
+ * When the mod is fully disabled (authentication.enabled=false) or the user opts out via
+ * worldProtection.clearAuthEntities=false, the mixin passes straight through and the dimension behaves
+ * like any vanilla level.
+ * Players are always allowed — they are the whole point of the dimension.
+ * Failure policy.
+ * No exception ever escapes into the entity-add path; an unexpected internal error fails closed
+ * (entity refused) with a debug log.
  */
 @Mixin(ServerLevel.class)
 public abstract class ServerLevelMixin {
 
-        /** Debug-only logger for unexpected internal states (never the security log). */
+        /**
+         * Debug-only logger for unexpected internal states (never the security log).
+         */
         private static final Logger SECUREAUTH_LOG = LoggerFactory.getLogger("secureauth.mixin");
 
         @Inject(method = "addFreshEntity(Lnet/minecraft/world/entity/Entity;)Z",

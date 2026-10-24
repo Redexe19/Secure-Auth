@@ -1,7 +1,7 @@
 package net.secureauth.security;
 
 /**
- * Types of security-relevant events written by {@link SecurityLogger}.
+ * Types of security-relevant events written by SecurityLogger.
  * Never includes password material — by construction.
  */
 public enum SecurityEvent {

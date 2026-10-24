@@ -1,9 +1,9 @@
 package net.secureauth.network;
 
 /**
- * Marks packets sent by SecureAuth itself so the outgoing-packet filter lets
- * them through even while the viewer is unauthenticated (auth prompts, the
- * tab-list hiding packet itself, etc.). All uses are on the server thread.
+ * Marks packets sent by SecureAuth itself so the outgoing-packet filter lets them through even while
+ * the viewer is unauthenticated (auth prompts, the tab-list hiding packet itself, etc.).
+ * All uses are on the server thread.
  */
 public final class PacketBypass {
 
@@ -12,7 +12,9 @@ public final class PacketBypass {
 	private PacketBypass() {
 	}
 
-	/** Runs {@code action} with the packet filter bypassed for this thread. */
+	/**
+	 * Runs action with the packet filter bypassed for this thread.
+	 */
 	public static void run(Runnable action) {
 		DEPTH.set(DEPTH.get() + 1);
 		try {

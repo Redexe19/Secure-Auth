@@ -4,11 +4,9 @@ import java.time.Instant;
 
 /**
  * A persistent authentication account.
- *
- * <p>Identity model for offline-mode servers: the canonical key is the
- * <em>normalized (lowercase) username</em>; the offline UUID captured at
- * registration is stored for optional strict binding. Password material is
- * kept as algorithm + version + salt + hash + parameters, never plaintext.</p>
+ * Identity model for offline-mode servers: the canonical key is the normalized (lowercase) username ;
+ * the offline UUID captured at registration is stored for optional strict binding.
+ * Password material is kept as algorithm + version + salt + hash + parameters, never plaintext.
  */
 public final class Account {
 
@@ -38,8 +36,8 @@ public final class Account {
 		this.offlineUuid = offlineUuid;
 		this.algorithm = algorithm;
 		this.hashVersion = hashVersion;
-		this.salt = salt;
-		this.hash = hash;
+		this.salt = salt == null ? null : salt.clone();
+		this.hash = hash == null ? null : hash.clone();
 		this.hashParams = hashParams;
 		this.createdAt = createdAt;
 		this.lastLogin = lastLogin;
@@ -50,17 +48,23 @@ public final class Account {
 
 	// --- Identity -------------------------------------------------------
 
-	/** Normalized (lowercase) username — the unique account key. */
+	/**
+	 * Normalized (lowercase) username — the unique account key.
+	 */
 	public String usernameNorm() {
 		return usernameNorm;
 	}
 
-	/** Display-cased name as first registered. */
+	/**
+	 * Display-cased name as first registered.
+	 */
 	public String usernameDisplay() {
 		return usernameDisplay;
 	}
 
-	/** Offline-mode UUID captured at registration (may be null). */
+	/**
+	 * Offline-mode UUID captured at registration (may be null).
+	 */
 	public String offlineUuid() {
 		return offlineUuid;
 	}
@@ -84,11 +88,11 @@ public final class Account {
 	}
 
 	public byte[] salt() {
-		return salt;
+		return salt == null ? null : salt.clone();
 	}
 
 	public byte[] hash() {
-		return hash;
+		return hash == null ? null : hash.clone();
 	}
 
 	public String hashParams() {
@@ -133,17 +137,23 @@ public final class Account {
 		this.locked = locked;
 	}
 
-	/** True while a temporary lockout is active. */
+	/**
+	 * True while a temporary lockout is active.
+	 */
 	public boolean inTemporaryLockout(long now) {
 		return !locked && lockoutUntil > now;
 	}
 
-	/** Formatted registration time for safe display. */
+	/**
+	 * Formatted registration time for safe display.
+	 */
 	public String registeredAtIso() {
 		return Instant.ofEpochMilli(createdAt).toString();
 	}
 
-	/** Formatted last login for safe display (metadata only). */
+	/**
+	 * Formatted last login for safe display (metadata only).
+	 */
 	public String lastLoginIso() {
 		return lastLogin == null ? "never" : Instant.ofEpochMilli(lastLogin).toString();
 	}

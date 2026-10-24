@@ -4,8 +4,8 @@ import java.util.regex.Pattern;
 
 /**
  * Defense-in-depth scrubber for anything that might end up in a log line.
- * The architecture never passes secrets into the logger, but this rewrites
- * accidental occurrences of credential-like key/value pairs.
+ * The architecture never passes secrets into the logger, but this rewrites accidental occurrences of
+ * credential-like key/value pairs.
  */
 public final class Redactor {
 
@@ -15,7 +15,9 @@ public final class Redactor {
 	private Redactor() {
 	}
 
-	/** Returns a copy of {@code input} with secret-looking values masked. */
+	/**
+	 * Returns a copy of input with secret-looking values masked.
+	 */
 	public static String scrub(String input) {
 		if (input == null || input.isEmpty()) {
 			return input;
