@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Pre-authentication command gate (fail closed).
  *
- * <p><b>Verified 26.2 command funnel</b> (minijavap + {@code javap -c} on the
+ * Verified 26.2 command funnel (minijavap + {@code javap -c} on the
  * real game-server jar): every player chat command — signed
  * ({@code ServerboundChatCommandSignedPacket}) and unsigned
  * ({@code ServerboundChatCommandPacket}) — is executed through
@@ -41,11 +41,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * and use the descriptors
  * {@code performPrefixedCommand(Lnet/minecraft/commands/CommandSourceStack;Ljava/lang/String;)V}
  * and {@code performCommand(Lcom/mojang/brigadier/ParseResults;Ljava/lang/String;)V};
- * cancellation is a plain {@code ci.cancel()}.</p>
+ * cancellation is a plain {@code ci.cancel}.
  *
- * <p><b>What it blocks.</b> While the executing source resolves to a player
+ * What it blocks. While the executing source resolves to a player
  * whose session is unauthenticated — <em>including a missing session</em>
- * (fail closed: the contract says {@code session() == null} means the player
+ * (fail closed: the contract says {@code session == null} means the player
  * never passed through our join handler, which is exactly the state an
  * attacker wants) — only the six SecureAuth command roots may run:
  * {@code register}, {@code login}, {@code logout}, {@code changepassword},
@@ -54,9 +54,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * commands — is cancelled before brigadier ever parses it. Console, RCON,
  * command block, function and other player-less sources always pass: they
  * are outside the authentication sandbox. The gate honours the
- * {@code worldProtection.blockCommands} configuration switch.</p>
+ * {@code worldProtection.blockCommands} configuration switch.
  *
- * <p><b>Feedback and logging.</b> Blocked players get the branded, translated
+ * Feedback and logging. Blocked players get the branded, translated
  * {@code auth.command.blocked} message (via
  * {@link AuthManager#sendTranslated(ServerPlayerEntity, String, Object...)}, which
  * wraps the send in {@code PacketBypass} so the outgoing filter cannot drop
@@ -73,13 +73,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * ({@code (event, actor, target, ip, details)}) because the 4-argument
  * overload is {@code (event, actor, target, ip)} — passing
  * {@code (actor, ip, details)} would silently put the command text into the
- * {@code ip} column.</p>
+ * {@code ip} column.
  *
- * <p><b>Failure policy.</b> The gate never throws: mod disabled/absent,
+ * Failure policy. The gate never throws: mod disabled/absent,
  * manager absent, blank command strings and player-less sources pass through
  * unchanged, and any unexpected internal error fails <em>closed</em> (the
  * command is cancelled) with a debug log — the auth commands themselves are
- * plain string matching and cannot be affected by such an error.</p>
+ * plain string matching and cannot be affected by such an error.
  */
 @Mixin(CommandManager.class)
 public abstract class CommandsMixin {

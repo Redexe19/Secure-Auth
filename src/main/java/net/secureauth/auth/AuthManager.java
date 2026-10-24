@@ -23,16 +23,16 @@ import net.secureauth.world.AuthWorldManager;
 /**
  * Central integration hub of the server-side authentication flow.
  *
- * <p>Owns the per-connection {@link AuthSession} map and orchestrates every
+ * Owns the per-connection {@link AuthSession} map and orchestrates every
  * state transition: join (quarantine), login/register attempts, logout, password
  * change, unregister, timeout and disconnect. All feedback to the player is
  * produced here — chat messages, the action-bar countdown and the
  * vanilla-compatible chest panel from {@link AuthPanel}. No custom packets
  * exist anywhere in the mod, so it runs against completely unmodified
- * clients.</p>
+ * clients.
  *
- * <p>Every guard fails closed: a missing session, a disabled mod, a locked
- * account or an unavailable store is always treated as "not authenticated".</p>
+ * Every guard fails closed: a missing session, a disabled mod, a locked
+ * account or an unavailable store is always treated as "not authenticated".
  */
 public final class AuthManager {
 
@@ -182,7 +182,7 @@ public final class AuthManager {
                         session.state = AuthState.AUTHENTICATED;
                         session.authAtMs = now;
                         sessions.put(player.getUuid(), session);
-                        // 1.2.4 self-heal: a trusted rejoin whose save data still points INTO
+                        // Self-healing: a trusted rejoin whose save data still points INTO
                         // the auth dimension (the player disconnected while a release was
                         // still pending — e.g. a laggy server ate the transfer) used to spawn
                         // them mid-fall inside the void, taking fall damage. They are moved
@@ -238,7 +238,7 @@ public final class AuthManager {
                                         truth = player.interactionManager.getGameMode();
                                 }
                                 resume.recordAuthenticated(player.getUuid(), session.usernameNorm, session.ip, truth);
-                                // 1.2.4: an authenticated player who is STILL inside the auth
+                                // An authenticated player who is STILL inside the auth
                                 // dimension at disconnect (a laggy server ate the release
                                 // transfer) gets the same pre-save position repair as the
                                 // unauthenticated — their save data must never record the
@@ -255,7 +255,7 @@ public final class AuthManager {
                                         worldManager.restoreOnDisconnect(player, session);
                                 } catch (RuntimeException ignored) {
                                         // Best-effort position repair; the capture guard in
-                                        // quarantine() covers the residual case on the next join.
+                                        // quarantine covers the residual case on the next join.
                                 }
                         }
                 }
@@ -314,7 +314,7 @@ public final class AuthManager {
                                         // teleport (vanilla /tp, another mod, or a half-finished
                                         // release transfer) can recreate the ServerPlayer and swap
                                         // the connection's reference while the session still holds
-                                        // the discarded entity — and ServerPlayer.teleport()
+                                        // the discarded entity — and ServerPlayer.teleport
                                         // silently no-ops for removed entities, so every guard
                                         // below (drift, escape, release watchdog) would act on a
                                         // ghost. The connection's public player field is the one
@@ -346,7 +346,7 @@ public final class AuthManager {
                 if (now - lastSecondAt >= 1000L) {
                         lastSecondAt = now;
 
-                        // Release watchdog (since 1.2.4): an authenticated player must
+                        // Release watchdog: an authenticated player must
                         // NEVER remain physically inside the auth dimension. When the
                         // release teleport fails (extreme server or client lag — the
                         // transfer silently no-ops), the player would otherwise be stuck
@@ -569,7 +569,7 @@ public final class AuthManager {
                 session.deadline = System.currentTimeMillis() + config.authentication.timeoutSeconds * 1000L;
                 session.lastTimeoutWarningAt = 0L;
 
-                // quarantine() captures a FRESH original location while the player is
+                // quarantine captures a FRESH original location while the player is
                 // still in the real world, then moves them back into the auth area.
                 worldManager.quarantine(session.player, session);
                 applyIsolation(session);
@@ -763,7 +763,7 @@ public final class AuthManager {
                         // Reading the game type is best-effort; the snapshot still covers it.
                 }
 
-                // 2. Undo the world-information isolation. Since 1.2.3 this also
+                // 2. Undo the world-information isolation.  this also
                 // re-syncs what the filter ate while the player was quarantined:
                 // listed tab entries (previously unlisted → "empty tab until
                 // rejoin"), any scoreboard objectives created meanwhile, and the

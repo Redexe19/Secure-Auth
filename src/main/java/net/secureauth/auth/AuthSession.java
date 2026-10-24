@@ -19,7 +19,7 @@ public final class AuthSession {
          * teleport recreates the {@code ServerPlayer} entity (the connection's
          * player reference is swapped, the old entity is discarded), so the
          * tick loop re-binds this field to the live entity whenever it changes
-         * (since 1.2.4 — without it the release watchdog kept "rescuing" a
+         * Without it the release watchdog kept "rescuing" a
          * discarded entity whose teleport silently no-ops while the real
          * player stayed stuck in the auth dimension).
          */
@@ -53,7 +53,7 @@ public final class AuthSession {
         /**
          * True once the ability reconciliation has confirmed (or repaired) this
          * session's state while the player is OUTSIDE the auth dimension. One-shot
-         * per quarantine: every {@code quarantine()} re-arms it, and the first
+         * per quarantine: every {@code quarantine} re-arms it, and the first
          * one-second pass after the player leaves the sandbox settles it — the
          * reconciliation must never run again afterwards, or it would fight later
          * operator game-mode/effect changes on a fully released player.

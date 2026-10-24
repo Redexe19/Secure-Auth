@@ -18,9 +18,9 @@ import net.secureauth.security.SecurityLogger;
  *   <li>session failure cap with kick.</li>
  * </ol>
  *
- * <p>Temporary lockouts are used by default so a hostile third party cannot
+ * Temporary lockouts are used by default so a hostile third party cannot
  * permanently lock someone else's account (denial of service); permanent locks
- * exist only as an explicit opt-in and as an administrator action.</p>
+ * exist only as an explicit opt-in and as an administrator action.
  */
 public final class LoginService {
 

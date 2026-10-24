@@ -12,10 +12,10 @@ import org.yaml.snakeyaml.Yaml;
 /**
  * Human-readable YAML configuration for SecureAuth.
  *
- * <p>All major behaviours are configurable; the file is loaded at server start
+ * All major behaviours are configurable; the file is loaded at server start
  * and can be re-read at runtime with {@code /auth reload}. Structural options
  * (database path, hash parameters of existing accounts) always take effect for
- * new accounts or after a restart.</p>
+ * new accounts or after a restart.
  */
 public final class AuthConfig {
 
@@ -95,7 +95,7 @@ public final class AuthConfig {
                 /** "auth_dimension" (recommended) or "freeze_in_place". */
                 public String isolationMode = "auth_dimension";
                 /**
-                 * Block used for the holding-cell floor (since 1.2.4: bedrock by
+                 * Block used for the holding-cell floor (: bedrock by
                  * default — the cell must be unbreakable even by an authenticated
                  * player who gets stuck in it while waiting for the release
                  * watchdog).
@@ -109,13 +109,13 @@ public final class AuthConfig {
                 public int platformRadius = 3;
                 /**
                  * Enclose the holding platform in unbreakable bedrock walls and
-                 * a ceiling (since 1.2.4): a player inside can never fall off,
+                 * a ceiling: a player inside can never fall off,
                  * fall out or suffocate — the worst case of a failed release is
                  * "waiting inside a sealed cell", never "dying in the void".
                  */
                 public boolean platformBox = true;
                 /**
-                 * Release watchdog (since 1.2.4, 5 s default): any AUTHENTICATED
+                 * Release watchdog (5 s default): any AUTHENTICATED
                  * player who is still physically inside the auth dimension this
                  * many seconds after login/register is automatically teleported
                  * back to their original location (re-checked every second —
@@ -124,13 +124,13 @@ public final class AuthConfig {
                 public int releaseWatchdogSeconds = 5;
                 /**
                  * Cancel every point of damage a player takes inside the auth
-                 * dimension (since 1.2.4): fall damage from a mid-air rejoin,
+                 * dimension: fall damage from a mid-air rejoin,
                  * void damage, anything — the sandbox is a waiting room, not a
                  * hazard. Quarantined players are additionally invulnerable.
                  */
                 public boolean noDamageInSandbox = true;
                 /**
-                 * Platform Y level inside the auth dimension (since 1.2.2: 200). The
+                 * Platform Y level inside the auth dimension (: 200). The
                  * platform sits high in the sky, far above anything a quarantined
                  * client could observe below it, and the sandbox blindness keeps the
                  * horizon close anyway.
@@ -138,7 +138,7 @@ public final class AuthConfig {
                 public int platformY = 200;
                 /**
                  * Teleport the player back to the platform if it drifts further than
-                 * this (since 1.2.2: 1.5 — a tight leash; the server also re-syncs the
+                 * this (: 1.5 — a tight leash; the server also re-syncs the
                  * authoritative position ten times per second).
                  */
                 public double maxDriftBlocks = 1.5;
@@ -149,14 +149,14 @@ public final class AuthConfig {
                 /** Keep the auth dimension a pure void: remove any block that is not part of the platform. */
                 public boolean pureVoid = true;
                 /**
-                 * Apply infinite blindness while a player is quarantined (since 1.2.2).
+                 * Apply infinite blindness while a player is quarantined.
                  * The thick fog keeps anything the client could still render of the
                  * sandbox out of view; it is removed on restore.
                  */
                 public boolean quarantineBlindness = true;
                 /**
                  * Regenerate the auth dimension from scratch on every server restart
-                 * (since 1.2.2): all saved chunk files are wiped at stop/start, the
+                 * all saved chunk files are wiped at stop/start, the
                  * seed is re-randomised per boot, and the dimension never accumulates
                  * saved state.
                  */
@@ -242,10 +242,10 @@ public final class AuthConfig {
                 readPassword(section(rootMap, "password"), cfg.password);
                 readSecurity(section(rootMap, "security"), cfg.security);
                 readWorldProtection(section(rootMap, "worldProtection"), cfg.worldProtection);
-                // 1.2.4 template upgrade: a pre-1.2.4 file knows no "platformBox" key;
+                // Template update: an older config file knows no "platformBox" key;
                 // if it also still carries the old stone default for the platform block,
                 // both move to the new bedrock-cell defaults together (an explicit
-                // platformBlock in a 1.2.4+ file is always respected verbatim).
+                // platformBlock in a current file is always respected verbatim).
                 Map<String, Object> wpSection = section(rootMap, "worldProtection");
                 if (wpSection != null && !wpSection.containsKey("platformBox")
                                 && "minecraft:stone".equals(cfg.worldProtection.platformBlock)) {
@@ -258,8 +258,8 @@ public final class AuthConfig {
                 readIdentity(section(rootMap, "identity"), cfg.identity);
                 readAdministration(section(rootMap, "administration"), cfg.administration);
                 readLogging(section(rootMap, "logging"), cfg.logging);
-                // 1.2.2 default migration: an existing file that still carries the exact
-                // untouched 1.2.1 template pair (platformY 64 + maxDriftBlocks 8.0) is
+                // Default migration: an existing file that still carries the exact
+                // untouched untouched default pair (platformY 64 + maxDriftBlocks 8.0) is
                 // upgraded to the new sandbox defaults (200 + 1.5). Any other combination
                 // counts as a deliberate choice and is respected verbatim.
                 if (cfg.worldProtection.platformY == 64 && cfg.worldProtection.maxDriftBlocks == 8.0) {
@@ -416,17 +416,10 @@ public final class AuthConfig {
         // Default file
         // ------------------------------------------------------------------
 
-        /**
-         * True when untouched older template defaults were upgraded in memory to
-         * newer sandbox defaults during {@link #load(Path)}: 1.2.1 → 1.2.2
-         * (platformY 64 + maxDriftBlocks 8.0 → 200 + 1.5) and pre-1.2.4 → 1.2.4
-         * (platformBlock stone → bedrock for files that predate platformBox).
-         * The entrypoint logs it so the admin knows what moved; setting the keys
-         * explicitly in the YAML always keeps full control.
-         */
+        /** Reports whether load updated untouched quarantine defaults in memory. */
         private boolean upgradedTemplateDefaults;
 
-        /** Whether load() upgraded untouched older template defaults to newer values. */
+        /** Whether load upgraded untouched older template defaults to newer values. */
         public boolean upgradedTemplateDefaults() {
                 return upgradedTemplateDefaults;
         }
@@ -485,7 +478,7 @@ public final class AuthConfig {
                                 worldProtection:
                                   # auth_dimension (recommended) | freeze_in_place
                                   isolationMode: auth_dimension
-                                  # Holding-cell floor block. Since 1.2.4 the cell is
+                                  # Holding-cell floor block. The cell is
                                   # unbreakable bedrock: an authenticated player waiting
                                   # inside for the release watchdog can never dig out.
                                   platformBlock: minecraft:bedrock

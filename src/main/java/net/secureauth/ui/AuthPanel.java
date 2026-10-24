@@ -21,14 +21,14 @@ import net.secureauth.security.SecurityEvent;
  * The player-facing authentication panel: a 27-slot chest menu that works on
  * completely vanilla clients.
  *
- * <p>It replaces the former modded-client auth screen. The panel is the
+ * It replaces the former modded-client auth screen. The panel is the
  * "status + guidance" surface — the actual password is typed in chat with
  * {@code /login} or {@code /register} (a chest grid cannot capture a secret).
  * Clicking the action items sends the matching command hint to chat, and the
  * panel refreshes itself whenever the session state changes (attempts left,
- * lockout countdown, deadline) while it stays open.</p>
+ * lockout countdown, deadline) while it stays open.
  *
- * <p>Layout (3 rows):</p>
+ * Layout (3 rows):
  * <pre>
  *   [ filler x4 ] [ player head: account status ] [ filler x4 ]
  *   [ filler x2 ] [ book: log in ] [ barrier: locked ] [ writable book: register ] [ filler x3 ]
