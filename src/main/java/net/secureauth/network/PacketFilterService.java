@@ -46,12 +46,12 @@ import net.secureauth.auth.AuthSession;
 /**
  * Pre-authentication world-information isolation.
  *
- * <p>Complements dimension isolation: while a player is unauthenticated, the
+ * Complements dimension isolation: while a player is unauthenticated, the
  * server drops packets that would leak real-world information from the
  * broadcast stream to that specific viewer — other players' tab-list entries,
  * chat/join/leave broadcasts, map data, (optionally) scoreboards and other
  * mods' custom payloads. SecureAuth's own packets are exempt via
- * {@link PacketBypass}.</p>
+ * {@link PacketBypass}.
  */
 public final class PacketFilterService {
 
@@ -131,13 +131,13 @@ public final class PacketFilterService {
         /**
          * Re-adds every online player to a freshly authenticated viewer's tab list.
          *
-         * <p>Since 1.2.3 this sends exactly the packet vanilla sends to a joining
+         * this sends exactly the packet vanilla sends to a joining
          * player ({@code createPlayerInitializing}: ADD_PLAYER + UPDATE_LISTED +
          * gamemode/latency/display-name/hat). A tab entry is only <em>rendered</em>
          * when its "listed" bit is set; the previous ADD_PLAYER-only re-add left
          * the entries present but unlisted, so the player's tab list stayed empty
          * until the next full rejoin — the "player has to rejoin to get the tab
-         * back" report.</p>
+         * back" report.
          */
         public void restoreOtherPlayers(ServerPlayer viewer, MinecraftServer server) {
                 PacketBypass.run(() -> viewer.connection.send(ClientboundPlayerInfoUpdatePacket

@@ -31,13 +31,13 @@ import net.minecraft.world.level.storage.LevelData;
 /**
  * Pre-authentication world isolation.
  *
- * <p>Players are moved into a dedicated {@code secureauth:auth} dimension — an
+ * Players are moved into a dedicated {@code secureauth:auth} dimension — an
  * overworld-style void (blue sky, sun and clouds, no terrain, no features) whose
  * only block is the stone platform under their feet — for the entire
  * authentication phase, so no chunks, entities, structures or player positions
  * of the real world are ever synced to an unauthenticated client. After
  * authentication the original dimension, position, rotation, game mode and
- * movement flags are restored from the server-side snapshot.</p>
+ * movement flags are restored from the server-side snapshot.
  */
 public final class AuthWorldManager {
 
@@ -98,12 +98,12 @@ public final class AuthWorldManager {
          * Moves the player into the authentication holding area and freezes their
          * dangerous state. Falls back to "freeze in place" if the dimension is missing.
          *
-         * <p>When the player is ALREADY inside the auth dimension at capture time
+         * When the player is ALREADY inside the auth dimension at capture time
          * (they rejoined after a timeout/quit while quarantined, or a crash left
          * their save data pointing into the auth area), the snapshot is replaced
          * by their respawn position — the auth dimension must never become the
          * "original location" a successful login restores them to, or they would
-         * authenticate straight into the void.</p>
+         * authenticate straight into the void.
          */
         public void quarantine(ServerPlayer player, AuthSession session) {
                 // Re-arm the one-shot ability reconciliation: the next login will
@@ -115,8 +115,8 @@ public final class AuthWorldManager {
                         logger.log(SecurityEvent.SANDBOX_ESCAPE_CORRECTED, session.usernameNorm, session.ip,
                                         "capture_in_auth_dimension; using respawn");
                 }
-                // 1.2.3: a snapshot carrying BOTH sandbox flags is leftover quarantine
-                // state from a pre-1.2.3 save (the flags used to leak into the
+                // A snapshot carrying BOTH sandbox flags is leftover quarantine
+                // state from an older player save (the flags used to leak into the
                 // disconnect save). Sanitize it so a successful login restores a
                 // normal, falling, damageable player — this also self-heals player
                 // data that is already poisoned.
@@ -142,14 +142,14 @@ public final class AuthWorldManager {
                 session.authSpawn = spawn;
 
                 // Feet land ON TOP of the platform block (y + 1), never inside it —
-                // and inside the bedrock cell (since 1.2.4), never on its roof.
+                // and inside the bedrock cell, never on its roof.
                 teleport(player, authLevel, spawn.getX() + 0.5, spawn.getY() + 1.0, spawn.getZ() + 0.5, 0.0F, 0.0F);
                 player.setPermanentlyInvulnerable(true);
                 player.setNoGravity(true);
                 player.stopSleeping();
                 player.setDeltaMovement(Vec3.ZERO);
                 resetFallDistanceSafely(player);
-                // Adventure mode (since 1.2.2): the CLIENT refuses to break or place blocks
+                // Adventure mode: the CLIENT refuses to break or place blocks
                 // and to interact with the world on its own, so the pre-auth sandbox looks
                 // and feels sealed instead of only being sealed server-side (client-side
                 // prediction used to make ghost breaks look possible).
@@ -185,7 +185,7 @@ public final class AuthWorldManager {
                         // restoring it would authenticate the player straight into the void.
                         original = null;
                 }
-                // Since 1.2.4 the defensive fallback is the player's respawn anchor
+                // the defensive fallback is the player's respawn anchor
                 // (bed) when one exists — a nicer place to wake up than the raw
                 // overworld spawn, and still never inside the auth dimension.
                 if (original == null) {
@@ -225,16 +225,16 @@ public final class AuthWorldManager {
 
         /**
          * Automatic rescue for an AUTHENTICATED player who is still physically
-         * inside the auth dimension (since 1.2.4). Two callers:
+         * inside the auth dimension. Two callers:
          * <ul>
-         *   <li>the release watchdog in {@code AuthManager.tick} (5 s default,
-         *       re-checked every second): a lag-failed dimension transfer during
-         *       login can no longer strand anyone — the player is sent back to
-         *       where they were, or to their respawn anchor;</li>
-         *   <li>the session-resume join path: a rejoining trusted player whose
-         *       save data still points into the auth dimension (they disconnected
-         *       while a release was pending) is moved out immediately instead of
-         *       spawning mid-fall inside the void.</li>
+         * <li>the release watchdog in {@code AuthManager.tick} (5 s default,
+         * re-checked every second): a lag-failed dimension transfer during
+         * login can no longer strand anyone — the player is sent back to
+         * where they were, or to their respawn anchor;</li>
+         * <li>the session-resume join path: a rejoining trusted player whose
+         * save data still points into the auth dimension (they disconnected
+         * while a release was pending) is moved out immediately instead of
+         * spawning mid-fall inside the void.</li>
          * </ul>
          * Returns true when a rescue actually happened (the player was inside the
          * auth dimension and was moved out).
@@ -261,26 +261,26 @@ public final class AuthWorldManager {
          * with adventure's "cannot interact, cannot break" while every
          * packet-level restore (tab list) already worked.
          *
-         * <p>Repairs, using the pre-quarantine snapshot as the source of truth:</p>
+         * Repairs, using the pre-quarantine snapshot as the source of truth:
          * <ul>
-         *   <li>the sandbox's ADVENTURE game type — only when the truth source proves
-         *       the player was not in adventure before the quarantine (a legitimate
-         *       adventure-mode player is never touched). The truth is the snapshot,
-         *       or for a resumed session (no snapshot) the auth-time game type the
-         *       resume record remembered — and then only with a corroborating
-         *       signature, so an operator's deliberate adventure survives;</li>
-         *   <li>the mod's own blindness instance — matched by its exact signature
-         *       (infinite, ambient, particle-free), so a blindness another operator
-         *       deliberately applied survives;</li>
-         *   <li>the sandbox's invulnerable + no-gravity PAIR — the exact flag
-         *       combination quarantine applies, reset to the snapshot's values;
-         *       single-flag states a player genuinely uses are never touched.</li>
+         * <li>the sandbox's ADVENTURE game type — only when the truth source proves
+         * the player was not in adventure before the quarantine (a legitimate
+         * adventure-mode player is never touched). The truth is the snapshot,
+         * or for a resumed session (no snapshot) the auth-time game type the
+         * resume record remembered — and then only with a corroborating
+         * signature, so an operator's deliberate adventure survives;</li>
+         * <li>the mod's own blindness instance — matched by its exact signature
+         * (infinite, ambient, particle-free), so a blindness another operator
+         * deliberately applied survives;</li>
+         * <li>the sandbox's invulnerable + no-gravity PAIR — the exact flag
+         * combination quarantine applies, reset to the snapshot's values;
+         * single-flag states a player genuinely uses are never touched.</li>
          * </ul>
          *
-         * <p>Returns true when anything was actually repaired. The caller marks
+         * Returns true when anything was actually repaired. The caller marks
          * the session reconciled either way (one-shot per quarantine), which is
          * what keeps this safety net from ever fighting later operator
-         * game-mode or effect changes on a fully released player.</p>
+         * game-mode or effect changes on a fully released player.
          */
         public boolean reconcileOutsideSandbox(ServerPlayer player, AuthSession session) {
                 OriginalLocation snapshot = session.originalLocation;
@@ -371,7 +371,7 @@ public final class AuthWorldManager {
                 }
                 ServerPlayer player = session.player;
 
-                // Position re-sync (since 1.2.2): while quarantined the server rejects all
+                // Position re-sync: while quarantined the server rejects all
                 // client movement, so the client could otherwise keep a local prediction of
                 // walking away. Ten times a second the authoritative platform position is
                 // pushed back out, which visibly snaps any ghost movement home.
@@ -457,7 +457,7 @@ public final class AuthWorldManager {
                                 target = server.overworld();
                         }
                         if (target != null && original != null) {
-                                // 1.2.3: the disconnect repair no longer dimension-TELEPORTS.
+                                // The disconnect repair no longer dimension-TELEPORTS.
                                 // The play-disconnect event races the vanilla entity removal,
                                 // and ServerPlayer.teleport silently no-ops for removed
                                 // players — which could leave the auth dimension in the
@@ -477,7 +477,7 @@ public final class AuthWorldManager {
                 }
                 // The disconnect save must not keep the quarantine sandbox state — in
                 // EITHER isolation mode: the blindness is lifted and the original game
-                // type restored before writing. Since 1.2.3 the sandbox's
+                // type restored before writing. the sandbox's
                 // invulnerable/no-gravity pair is reset too — leaving it set poisoned
                 // the saved player data, so a rejoin loaded a permanently floating,
                 // invulnerable player (the "/logout then rejoin then login = still
@@ -549,10 +549,10 @@ public final class AuthWorldManager {
          * other mods or operator accidents within seconds, and it costs nothing once
          * the dimension is clean (empty sections are skipped in palette time).
          *
-         * <p>Runs once per second from the auth manager housekeeping when
+         * Runs once per second from the auth manager housekeeping when
          * {@code worldProtection.pureVoid} is enabled (default). A removal budget per
          * pass keeps a single tick cheap even while a large legacy area is being
-         * cleaned; the sweep simply continues where it stopped on the next pass.</p>
+         * cleaned; the sweep simply continues where it stopped on the next pass.
          */
         public void purifyVoid(MinecraftServer server) {
                 if (!config.worldProtection.pureVoid) {
@@ -611,7 +611,7 @@ public final class AuthWorldManager {
          * cell. Sections whose palette contains only air are skipped in palette
          * time, so a clean dimension costs a handful of probes per chunk; any
          * non-air palette entry forces a position-aware scan because the palette
-         * cannot tell where the blocks sit. Since 1.2.4 the allowed set is the
+         * cannot tell where the blocks sit. the allowed set is the
          * full cell shell (floor + walls + ceiling) — the purifier and the cell
          * builder share {@link #isHoldingCellBlock}, so the box can never be
          * mistaken for junk (or the junk for the box).
@@ -673,7 +673,7 @@ public final class AuthWorldManager {
         private static final int CELL_INTERIOR_HEIGHT = 3;
 
         /**
-         * Ensures the holding cell exists and returns its centre block. Since 1.2.4
+         * Ensures the holding cell exists and returns its centre block. 
          * the cell is a sealed bedrock box when {@code worldProtection.platformBox}
          * is enabled (default): a {@code platformRadius}-half-extent interior with
          * a floor of {@code platformBlock} (bedrock by default), unbreakable bedrock
@@ -720,11 +720,11 @@ public final class AuthWorldManager {
          * Both the builder and the void purifier use it, so the purifier can
          * never eat the cell it is supposed to keep.
          *
-         * <p>With the box enabled (default) the allowed set is the sealed shell:
+         * With the box enabled (default) the allowed set is the sealed shell:
          * the full footprint on the floor row and the ceiling row, plus the wall
          * ring on every row in between. With {@code platformBox=false} it is the
          * legacy flat platform ({@code platformRadius} half-extent on one row).
-         * The interior is air and never part of the allowed set.</p>
+         * The interior is air and never part of the allowed set.
          */
         private boolean isHoldingCellBlock(int x, int y, int z) {
                 int baseY = config.worldProtection.platformY;
@@ -757,7 +757,7 @@ public final class AuthWorldManager {
         }
 
         // ------------------------------------------------------------------
-        // Sandbox sensory isolation (since 1.2.2)
+        // Sandbox sensory isolation 
         // ------------------------------------------------------------------
 
         /**
@@ -803,7 +803,7 @@ public final class AuthWorldManager {
 
         /**
          * Clears a stale {@code removed} flag left by a half-finished dimension
-         * transfer (since 1.2.4). {@code ServerPlayer.teleport()} hard-returns for
+         * transfer. {@code ServerPlayer.teleport} hard-returns for
          * removed entities, so a player whose release transfer failed mid-way under
          * lag would silently no-op EVERY later teleport — the exact "stuck in the
          * auth dimension after a laggy login" report. The flag is only cleared for
