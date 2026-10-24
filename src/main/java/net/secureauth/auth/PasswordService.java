@@ -14,18 +14,13 @@ import org.bouncycastle.crypto.params.Argon2Parameters;
 
 /**
  * Password hashing service.
- *
- * <p>Primary algorithm: Argon2id (Bouncy Castle, pure Java, bundled with the mod).
- * Fallback: PBKDF2WithHmacSHA256 from the JDK, used when the configured algorithm
- * is "pbkdf2" or when Bouncy Castle is unavailable for any reason.</p>
- *
- * <p>Security properties:</p>
- * <ul>
- *   <li>Random salt per password.</li>
- *   <li>Verification is constant-time via {@link MessageDigest#isEqual(byte[], byte[])}.</li>
- *   <li>Passwords never appear in {@code toString()}, exceptions or logs.</li>
- *   <li>Hash parameters are stored alongside the hash so they can be upgraded later.</li>
- * </ul>
+ * Primary algorithm: Argon2id (Bouncy Castle, pure Java, bundled with the mod).
+ * Fallback: PBKDF2WithHmacSHA256 from the JDK, used when the configured algorithm is "pbkdf2" or when
+ * Bouncy Castle is unavailable for any reason.
+ * Security properties: Random salt per password.
+ * Verification is constant-time via byte[]).
+ * Passwords never appear in toString, exceptions or logs.
+ * Hash parameters are stored alongside the hash so they can be upgraded later.
  */
 public final class PasswordService {
 
@@ -42,7 +37,9 @@ public final class PasswordService {
                 this.config = config;
         }
 
-        /** Immutable record of everything needed to verify a password later. */
+        /**
+         * Immutable record of everything needed to verify a password later.
+         */
         public record PasswordHash(String algorithm, int version, byte[] salt, byte[] hash, String params) {
                 public PasswordHash {
                         salt = salt == null ? null : salt.clone();
@@ -80,7 +77,9 @@ public final class PasswordService {
                 }
         }
 
-        /** Hashes a password with the configured algorithm. */
+        /**
+         * Hashes a password with the configured algorithm.
+         */
         public PasswordHash hash(String password) {
                 String algorithm = configuredAlgorithm();
                 if (ALGORITHM_ARGON2ID.equals(algorithm) && isArgon2Available()) {
@@ -97,8 +96,8 @@ public final class PasswordService {
         }
 
         /**
-         * Verifies a candidate password against a stored hash, using the parameters
-         * stored at hashing time. Constant-time comparison.
+         * Verifies a candidate password against a stored hash, using the parameters stored at hashing time.
+         * Constant-time comparison.
          */
         public boolean verify(PasswordHash stored, String candidate) {
                 if (stored == null || candidate == null || stored.salt() == null || stored.hash() == null) {
@@ -233,7 +232,9 @@ public final class PasswordService {
                 return Base64.getDecoder().decode(value);
         }
 
-        /** Wipes a char array best-effort (passwords arrive as Strings, see README). */
+        /**
+         * Wipes a char array best-effort (passwords arrive as Strings, see README).
+         */
         public static void wipe(char[] chars) {
                 Arrays.fill(chars, '\0');
         }

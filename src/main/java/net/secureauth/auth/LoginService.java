@@ -10,17 +10,12 @@ import net.secureauth.security.SecurityEvent;
 import net.secureauth.security.SecurityLogger;
 
 /**
- * Login flow with layered brute-force protection:
- * <ol>
- *   <li>per-connection cooldown (anti packet-spam),</li>
- *   <li>per-IP token-bucket rate limit,</li>
- *   <li>per-account failure counter with temporary lockout,</li>
- *   <li>session failure cap with kick.</li>
- * </ol>
- *
- * <p>Temporary lockouts are used by default so a hostile third party cannot
- * permanently lock someone else's account (denial of service); permanent locks
- * exist only as an explicit opt-in and as an administrator action.</p>
+ * Login flow with layered brute-force protection: per-connection cooldown (anti packet-spam), per-IP
+ * token-bucket rate limit, per-account failure counter with temporary lockout, session failure cap
+ * with kick.
+ * Temporary lockouts are used by default so a hostile third party cannot permanently lock someone
+ * else's account (denial of service); permanent locks exist only as an explicit opt-in and as an
+ * administrator action.
  */
 public final class LoginService {
 
@@ -60,7 +55,7 @@ public final class LoginService {
 	}
 
 	/**
-	 * Attempts to authenticate {@code session} with the given password.
+	 * Attempts to authenticate session with the given password.
 	 * The session must belong to the same connection that sent the attempt.
 	 */
 	public Result attempt(AuthSession session, String password) {
@@ -164,7 +159,9 @@ public final class LoginService {
 		return Result.Failure.of("auth.login.incorrect");
 	}
 
-	/** Attempts remaining for feedback messages (server-authoritative). */
+	/**
+	 * Attempts remaining for feedback messages (server-authoritative).
+	 */
 	public int attemptsRemaining(AuthSession session) {
 		if (session.account == null) {
 			return config.security.maxLoginAttempts;

@@ -11,11 +11,10 @@ import org.yaml.snakeyaml.Yaml;
 
 /**
  * Human-readable YAML configuration for SecureAuth.
- *
- * <p>All major behaviours are configurable; the file is loaded at server start
- * and can be re-read at runtime with {@code /auth reload}. Structural options
- * (database path, hash parameters of existing accounts) always take effect for
- * new accounts or after a restart.</p>
+ * All major behaviours are configurable; the file is loaded at server start and can be re-read at
+ * runtime with /auth reload.
+ * Structural options (database path, hash parameters of existing accounts) always take effect for new
+ * accounts or after a restart.
  */
 public final class AuthConfig {
 
@@ -31,22 +30,36 @@ public final class AuthConfig {
         public final LoggingSection logging = new LoggingSection();
 
         public static final class AuthenticationSection {
-                /** Master switch: when false the mod performs no enforcement at all. */
+                /**
+                 * Master switch: when false the mod performs no enforcement at all.
+                 */
                 public boolean enabled = true;
-                /** Seconds before an unauthenticated connection is disconnected. */
+                /**
+                 * Seconds before an unauthenticated connection is disconnected.
+                 */
                 public int timeoutSeconds = 60;
-                /** Authenticate automatically right after a successful registration. */
+                /**
+                 * Authenticate automatically right after a successful registration.
+                 */
                 public boolean autoLoginAfterRegister = true;
-                /** Warn the player every N seconds while waiting for authentication. */
+                /**
+                 * Warn the player every N seconds while waiting for authentication.
+                 */
                 public int warningIntervalSeconds = 15;
-                /** Seconds an authenticated disconnect is remembered for quick re-login (0 = off; disabled by default). */
+                /**
+                 * Seconds an authenticated disconnect is remembered for quick re-login (0 = off; disabled by default).
+                 */
                 public int sessionPersistSeconds = 0;
-                /** Require the same IP for the session resume to apply. */
+                /**
+                 * Require the same IP for the session resume to apply.
+                 */
                 public boolean sessionRequireSameIp = true;
         }
 
         public static final class PasswordSection {
-                /** "argon2id" (recommended) or "pbkdf2" (JDK fallback). */
+                /**
+                 * "argon2id" (recommended) or "pbkdf2" (JDK fallback).
+                 */
                 public String algorithm = "argon2id";
                 public int minimumLength = 8;
                 public int maximumLength = 128;
@@ -69,97 +82,96 @@ public final class AuthConfig {
         }
 
         public static final class SecuritySection {
-                /** Failed logins before the account is temporarily locked. */
+                /**
+                 * Failed logins before the account is temporarily locked.
+                 */
                 public int maxLoginAttempts = 5;
-                /** Temporary lockout duration in seconds. */
+                /**
+                 * Temporary lockout duration in seconds.
+                 */
                 public int lockoutSeconds = 60;
-                /** Session failures before the player is kicked outright. */
+                /**
+                 * Session failures before the player is kicked outright.
+                 */
                 public int kickAfterFailures = 10;
-                /** Cooldown between two login attempts from the same connection. */
+                /**
+                 * Cooldown between two login attempts from the same connection.
+                 */
                 public long perSessionCooldownMs = 1_000L;
-                /** IP-based rate limiting of join and authentication attempts. */
+                /**
+                 * IP-based rate limiting of join and authentication attempts.
+                 */
                 public boolean ipRateLimit = true;
-                /** Authentication attempts per IP per minute. */
+                /**
+                 * Authentication attempts per IP per minute.
+                 */
                 public int ipAuthAttemptsPerMinute = 10;
-                /** Joins per IP per minute (protects against reconnect spam). */
+                /**
+                 * Joins per IP per minute (protects against reconnect spam).
+                 */
                 public int ipJoinAttemptsPerMinute = 20;
-                /** Permanently lock accounts after lockouts (DANGEROUS: enables denial of service against arbitrary accounts). */
+                /**
+                 * Permanently lock accounts after lockouts (DANGEROUS: enables denial of service against arbitrary
+                 * accounts).
+                 */
                 public boolean permanentLockAfterRepeatedLockouts = false;
-                /** Number of lockouts within the window that trigger a permanent lock (if enabled). */
+                /**
+                 * Number of lockouts within the window that trigger a permanent lock (if enabled).
+                 */
                 public int lockoutsForPermanentLock = 5;
-                /** Window in seconds considered when counting lockouts. */
+                /**
+                 * Window in seconds considered when counting lockouts.
+                 */
                 public long lockoutCountWindowSeconds = 3_600L;
         }
 
         public static final class WorldProtectionSection {
-                /** "auth_dimension" (recommended) or "freeze_in_place". */
-                public String isolationMode = "auth_dimension";
                 /**
-                 * Block used for the holding-cell floor (since 1.2.4: bedrock by
-                 * default — the cell must be unbreakable even by an authenticated
-                 * player who gets stuck in it while waiting for the release
-                 * watchdog).
+                 * "auth_dimension" (recommended) or "freeze_in_place".
                  */
+                public String isolationMode = "auth_dimension";
+                
                 public String platformBlock = "minecraft:bedrock";
                 /**
                  * Interior half-extent of the holding cell: 3 => 7x7 interior.
-                 * The enclosing shell (walls + ceiling) is always bedrock and
-                 * sits one block further out.
+                 * The enclosing shell (walls + ceiling) is always bedrock and sits one block further out.
                  */
                 public int platformRadius = 3;
-                /**
-                 * Enclose the holding platform in unbreakable bedrock walls and
-                 * a ceiling (since 1.2.4): a player inside can never fall off,
-                 * fall out or suffocate — the worst case of a failed release is
-                 * "waiting inside a sealed cell", never "dying in the void".
-                 */
+                
                 public boolean platformBox = true;
                 /**
-                 * Release watchdog (since 1.2.4, 5 s default): any AUTHENTICATED
-                 * player who is still physically inside the auth dimension this
-                 * many seconds after login/register is automatically teleported
-                 * back to their original location (re-checked every second —
-                 * lag-failed dimension transfers cannot strand anyone). 0 = off.
+                 * 0 = off.
                  */
                 public int releaseWatchdogSeconds = 5;
                 /**
-                 * Cancel every point of damage a player takes inside the auth
-                 * dimension (since 1.2.4): fall damage from a mid-air rejoin,
-                 * void damage, anything — the sandbox is a waiting room, not a
-                 * hazard. Quarantined players are additionally invulnerable.
+                 * Quarantined players are additionally invulnerable.
                  */
                 public boolean noDamageInSandbox = true;
                 /**
-                 * Platform Y level inside the auth dimension (since 1.2.2: 200). The
-                 * platform sits high in the sky, far above anything a quarantined
-                 * client could observe below it, and the sandbox blindness keeps the
-                 * horizon close anyway.
+                 * The platform sits high in the sky, far above anything a quarantined client could observe below it,
+                 * and the sandbox blindness keeps the horizon close anyway.
                  */
                 public int platformY = 200;
-                /**
-                 * Teleport the player back to the platform if it drifts further than
-                 * this (since 1.2.2: 1.5 — a tight leash; the server also re-syncs the
-                 * authoritative position ten times per second).
-                 */
+                
                 public double maxDriftBlocks = 1.5;
-                /** Continuously correct unauthorised movement server-side. */
+                /**
+                 * Continuously correct unauthorised movement server-side.
+                 */
                 public boolean movementCorrection = true;
-                /** Clear stray entities inside the auth dimension (spawn-blocking + sweep). */
+                /**
+                 * Clear stray entities inside the auth dimension (spawn-blocking + sweep).
+                 */
                 public boolean clearAuthEntities = true;
-                /** Keep the auth dimension a pure void: remove any block that is not part of the platform. */
+                /**
+                 * Keep the auth dimension a pure void: remove any block that is not part of the platform.
+                 */
                 public boolean pureVoid = true;
                 /**
-                 * Apply infinite blindness while a player is quarantined (since 1.2.2).
-                 * The thick fog keeps anything the client could still render of the
-                 * sandbox out of view; it is removed on restore.
+                 * The thick fog keeps anything the client could still render of the sandbox out of view; it is removed
+                 * on restore.
                  */
                 public boolean quarantineBlindness = true;
-                /**
-                 * Regenerate the auth dimension from scratch on every server restart
-                 * (since 1.2.2): all saved chunk files are wiped at stop/start, the
-                 * seed is re-randomised per boot, and the dimension never accumulates
-                 * saved state.
-                 */
+                
                 public boolean resetOnRestart = true;
                 public boolean blockInteraction = true;
                 public boolean blockChat = true;
@@ -167,46 +179,68 @@ public final class AuthConfig {
         }
 
         public static final class WorldInfoSection {
-                /** Hide other players from the tab list of unauthenticated viewers. */
+                /**
+                 * Hide other players from the tab list of unauthenticated viewers.
+                 */
                 public boolean hideTabList = true;
-                /** Suppress chat/JOIN/LEAVE/ADVANCEMENT broadcasts to unauthenticated viewers. */
+                /**
+                 * Suppress chat/JOIN/LEAVE/ADVANCEMENT broadcasts to unauthenticated viewers.
+                 */
                 public boolean suppressChatBroadcasts = true;
-                /** Suppress map data packets to unauthenticated viewers. */
+                /**
+                 * Suppress map data packets to unauthenticated viewers.
+                 */
                 public boolean hideMaps = true;
-                /** Replace the full command tree with a minimal auth-only tree. */
+                /**
+                 * Replace the full command tree with a minimal auth-only tree.
+                 */
                 public boolean minimalCommandTree = true;
-                /** Filter scoreboard packets (requires scoreboard resync on auth). */
+                /**
+                 * Filter scoreboard packets (requires scoreboard resync on auth).
+                 */
                 public boolean filterScoreboard = false;
-                /** Filter other mods' custom payloads (may break other mods). */
+                /**
+                 * Filter other mods' custom payloads (may break other mods).
+                 */
                 public boolean filterCustomPayloads = false;
         }
 
         public static final class UiSection {
-                /** Show the authentication countdown + hint on the action bar instead of periodic chat warnings. */
+                /**
+                 * Show the authentication countdown + hint on the action bar instead of periodic chat warnings.
+                 */
                 public boolean actionBarTimer = true;
-                /** Open the chest-style auth panel automatically when an unauthenticated player joins. */
+                /**
+                 * Open the chest-style auth panel automatically when an unauthenticated player joins.
+                 */
                 public boolean autoOpenAuthPanel = true;
-                /** Enable the admin chest panel (/auth panel). */
+                /**
+                 * Enable the admin chest panel (/auth panel).
+                 */
                 public boolean adminPanel = true;
         }
 
         public static final class StorageSection {
-                /** Path of the SQLite database, relative to the server working directory. */
+                /**
+                 * Path of the SQLite database, relative to the server working directory.
+                 */
                 public String databasePath = "config/secureauth/secureauth.db";
         }
 
         public static final class IdentitySection {
                 /**
-                 * When true, an account can only be used from connections whose offline UUID
-                 * matches the one stored at registration. Offline UUIDs are derived from the
-                 * (case-insensitive) username, so mismatches usually mean the server once ran
-                 * in a different mode or the name casing changed.
+                 * When true, an account can only be used from connections whose offline UUID matches the one stored at
+                 * registration.
+                 * Offline UUIDs are derived from the (case-insensitive) username, so mismatches usually mean the
+                 * server once ran in a different mode or the name casing changed.
                  */
                 public boolean strictUuidBinding = false;
         }
 
         public static final class AdministrationSection {
-                /** Vanilla operator level required for auth.admin.* commands. */
+                /**
+                 * Vanilla operator level required for auth.admin.* commands.
+                 */
                 public int adminOpLevel = 2;
         }
 
@@ -223,7 +257,9 @@ public final class AuthConfig {
         // Loading
         // ------------------------------------------------------------------
 
-        /** Loads the configuration, writing the default file if it does not exist yet. */
+        /**
+         * Loads the configuration, writing the default file if it does not exist yet.
+         */
         @SuppressWarnings("unchecked")
         public static AuthConfig load(Path file) throws IOException {
                 if (Files.notExists(file)) {
@@ -242,10 +278,10 @@ public final class AuthConfig {
                 readPassword(section(rootMap, "password"), cfg.password);
                 readSecurity(section(rootMap, "security"), cfg.security);
                 readWorldProtection(section(rootMap, "worldProtection"), cfg.worldProtection);
-                // 1.2.4 template upgrade: a pre-1.2.4 file knows no "platformBox" key;
+                
                 // if it also still carries the old stone default for the platform block,
                 // both move to the new bedrock-cell defaults together (an explicit
-                // platformBlock in a 1.2.4+ file is always respected verbatim).
+                
                 Map<String, Object> wpSection = section(rootMap, "worldProtection");
                 if (wpSection != null && !wpSection.containsKey("platformBox")
                                 && "minecraft:stone".equals(cfg.worldProtection.platformBlock)) {
@@ -258,9 +294,10 @@ public final class AuthConfig {
                 readIdentity(section(rootMap, "identity"), cfg.identity);
                 readAdministration(section(rootMap, "administration"), cfg.administration);
                 readLogging(section(rootMap, "logging"), cfg.logging);
-                // 1.2.2 default migration: an existing file that still carries the exact
-                // untouched 1.2.1 template pair (platformY 64 + maxDriftBlocks 8.0) is
-                // upgraded to the new sandbox defaults (200 + 1.5). Any other combination
+                
+                
+                // upgraded to the new sandbox defaults (200 + 1.5).
+// Any other combination
                 // counts as a deliberate choice and is respected verbatim.
                 if (cfg.worldProtection.platformY == 64 && cfg.worldProtection.maxDriftBlocks == 8.0) {
                         cfg.worldProtection.platformY = 200;
@@ -378,7 +415,9 @@ public final class AuthConfig {
                 s.logToDatabase = bool(m, "logToDatabase", s.logToDatabase);
         }
 
-        /** Rejects dangerous nonsense values instead of failing later in strange ways. */
+        /**
+         * Rejects dangerous nonsense values instead of failing later in strange ways.
+         */
         private static void clamp(AuthConfig cfg) {
                 cfg.authentication.timeoutSeconds = Math.max(5, cfg.authentication.timeoutSeconds);
                 cfg.authentication.warningIntervalSeconds = Math.max(3, cfg.authentication.warningIntervalSeconds);
@@ -417,21 +456,21 @@ public final class AuthConfig {
         // ------------------------------------------------------------------
 
         /**
-         * True when untouched older template defaults were upgraded in memory to
-         * newer sandbox defaults during {@link #load(Path)}: 1.2.1 → 1.2.2
-         * (platformY 64 + maxDriftBlocks 8.0 → 200 + 1.5) and pre-1.2.4 → 1.2.4
-         * (platformBlock stone → bedrock for files that predate platformBox).
-         * The entrypoint logs it so the admin knows what moved; setting the keys
-         * explicitly in the YAML always keeps full control.
+         * The entrypoint logs it so the admin knows what moved; setting the keys explicitly in the YAML always
+         * keeps full control.
          */
         private boolean upgradedTemplateDefaults;
 
-        /** Whether load() upgraded untouched older template defaults to newer values. */
+        /**
+         * Whether load upgraded untouched older template defaults to newer values.
+         */
         public boolean upgradedTemplateDefaults() {
                 return upgradedTemplateDefaults;
         }
 
-        /** The commented default configuration file. */
+        /**
+         * The commented default configuration file.
+         */
         public static String defaultYaml() {
                 return """
                                 # SecureAuth configuration
@@ -485,7 +524,7 @@ public final class AuthConfig {
                                 worldProtection:
                                   # auth_dimension (recommended) | freeze_in_place
                                   isolationMode: auth_dimension
-                                  # Holding-cell floor block. Since 1.2.4 the cell is
+                                  # Holding-cell floor block. The cell is
                                   # unbreakable bedrock: an authenticated player waiting
                                   # inside for the release watchdog can never dig out.
                                   platformBlock: minecraft:bedrock
@@ -600,7 +639,9 @@ public final class AuthConfig {
                 return v instanceof String s ? s : def;
         }
 
-        /** Serialises this config back to a YAML map (used by tests). */
+        /**
+         * Serialises this config back to a YAML map (used by tests).
+         */
         public Map<String, Object> toMap() {
                 Map<String, Object> root = new LinkedHashMap<>();
                 Map<String, Object> auth = new LinkedHashMap<>();

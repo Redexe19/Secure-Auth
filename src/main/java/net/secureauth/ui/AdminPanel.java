@@ -25,20 +25,19 @@ import net.secureauth.lang.Lang;
 import net.secureauth.security.SecurityEvent;
 
 /**
- * The administrator's chest panel — an economy-shop-style GUI over the live
- * session table, opened with {@code /auth panel} (admin permission).
- *
- * <p>The first page lists every online player as a head whose lore carries the
- * live authentication state. Clicking a head opens the detail page with the
- * same actions the {@code /auth lock|unlock|forcelogout} subcommands offer,
- * plus the password-reset hint (a secret can never be typed into a chest
- * grid, so the reset action prints the command into chat instead). Every
- * action routes through {@link AuthManager} and lands in the security log
- * exactly like its command twin.</p>
+ * The administrator's chest panel — an economy-shop-style GUI over the live session table, opened with
+ * /auth panel (admin permission).
+ * The first page lists every online player as a head whose lore carries the live authentication state.
+ * Clicking a head opens the detail page with the same actions the /auth lock|unlock|forcelogout
+ * subcommands offer, plus the password-reset hint (a secret can never be typed into a chest grid, so
+ * the reset action prints the command into chat instead).
+ * Every action routes through AuthManager and lands in the security log exactly like its command twin.
  */
 public final class AdminPanel extends ChestGui {
 
-        /** Online players shown per page (rows 1-5 of the 6-row grid). */
+        /**
+         * Online players shown per page (rows 1-5 of the 6-row grid).
+         */
         private static final int PLAYERS_PER_PAGE = 45;
 
         private static final int SLOT_SUMMARY = 4;
@@ -58,7 +57,9 @@ public final class AdminPanel extends ChestGui {
                 this.page = page;
         }
 
-        /** Opens the admin panel (page 0) for an administrator. */
+        /**
+         * Opens the admin panel (page 0) for an administrator.
+         */
         public static void open(AuthManager manager, ServerPlayer admin) {
                 openPage(manager, admin, 0);
         }
@@ -184,7 +185,9 @@ public final class AdminPanel extends ChestGui {
                                 viewer().getIpAddress(), "admin_panel_click_spam");
         }
 
-        /** Admin gate re-checked per click: the same check as /auth panel. */
+        /**
+         * Admin gate re-checked per click: the same check as /auth panel.
+         */
         private boolean isAdmin(ServerPlayer admin) {
                 int level = Math.min(4, Math.max(1, manager.config().administration.adminOpLevel));
                 try {
@@ -204,7 +207,9 @@ public final class AdminPanel extends ChestGui {
         // Detail page
         // ------------------------------------------------------------------
 
-        /** The per-player detail page reached by clicking a head. */
+        /**
+         * The per-player detail page reached by clicking a head.
+         */
         static final class AdminPlayerDetail extends ChestGui {
 
                 private static final int SLOT_HEAD = 4;
@@ -336,7 +341,7 @@ public final class AdminPanel extends ChestGui {
                         try {
                                 manager.repository().setLocked(account.id(), lock);
                         } catch (StoreException e) {
-                                // Root cause into the logs (since 1.2.4): a generic player-facing
+                                
                                 // message alone made flaky store failures undiagnosable.
                                 manager.logger().log(SecurityEvent.DATABASE_UNAVAILABLE,
                                                 admin.getGameProfile().name(), null, admin.getIpAddress(),
@@ -369,7 +374,9 @@ public final class AdminPanel extends ChestGui {
                         refresh();
                 }
 
-                /** Admin gate re-checked per click: the same check as /auth panel. */
+                /**
+                 * Admin gate re-checked per click: the same check as /auth panel.
+                 */
                 private boolean isAdmin(ServerPlayer admin) {
                         int level = Math.min(4, Math.max(1, manager.config().administration.adminOpLevel));
                         try {

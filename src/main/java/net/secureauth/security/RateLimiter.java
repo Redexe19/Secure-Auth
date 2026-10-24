@@ -4,9 +4,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Thread-safe token-bucket rate limiter keyed by arbitrary strings (typically
- * IP addresses). Refills continuously at {@code permitsPerSecond} up to the
- * burst size.
+ * Thread-safe token-bucket rate limiter keyed by arbitrary strings (typically IP addresses).
+ * Refills continuously at permitsPerSecond up to the burst size.
  */
 public final class RateLimiter {
 
@@ -15,7 +14,9 @@ public final class RateLimiter {
 	private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
 	private final Clock clock;
 
-	/** Injectable clock for tests. */
+	/**
+	 * Injectable clock for tests.
+	 */
 	public interface Clock {
 		long nowMillis();
 	}
@@ -30,7 +31,9 @@ public final class RateLimiter {
 		this.clock = clock;
 	}
 
-	/** Consumes one permit for {@code key}; false means the action is rate limited. */
+	/**
+	 * Consumes one permit for key; false means the action is rate limited.
+	 */
 	public boolean tryAcquire(String key) {
 		if (key == null) {
 			key = "unknown";
@@ -57,7 +60,9 @@ public final class RateLimiter {
 		return acquired[0];
 	}
 
-	/** Seconds until a permit becomes available for {@code key} (0 if available now). */
+	/**
+	 * Seconds until a permit becomes available for key (0 if available now).
+	 */
 	public int retryInSeconds(String key) {
 		if (key == null) {
 			key = "unknown";
@@ -75,7 +80,9 @@ public final class RateLimiter {
 		}
 	}
 
-	/** Drops buckets that have been idle for a long time to prevent memory leaks. */
+	/**
+	 * Drops buckets that have been idle for a long time to prevent memory leaks.
+	 */
 	public void cleanup(long idleMillis) {
 		long threshold = clock.nowMillis() - idleMillis;
 		for (String key : buckets.keySet()) {

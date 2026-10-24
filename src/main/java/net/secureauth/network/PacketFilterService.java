@@ -45,13 +45,11 @@ import net.secureauth.auth.AuthSession;
 
 /**
  * Pre-authentication world-information isolation.
- *
- * <p>Complements dimension isolation: while a player is unauthenticated, the
- * server drops packets that would leak real-world information from the
- * broadcast stream to that specific viewer — other players' tab-list entries,
- * chat/join/leave broadcasts, map data, (optionally) scoreboards and other
- * mods' custom payloads. SecureAuth's own packets are exempt via
- * {@link PacketBypass}.</p>
+ * Complements dimension isolation: while a player is unauthenticated, the server drops packets that
+ * would leak real-world information from the broadcast stream to that specific viewer — other players'
+ * tab-list entries, chat/join/leave broadcasts, map data, (optionally) scoreboards and other mods'
+ * custom payloads.
+ * SecureAuth's own packets are exempt via PacketBypass.
  */
 public final class PacketFilterService {
 
@@ -66,8 +64,8 @@ public final class PacketFilterService {
         // ------------------------------------------------------------------
 
         /**
-         * Decides whether {@code packet} must be dropped for the connection
-         * {@code listener}. Fail-closed: unknown states never authenticate.
+         * Decides whether packet must be dropped for the connection listener.
+         * Fail-closed: unknown states never authenticate.
          */
         public boolean shouldDrop(ServerCommonPacketListenerImpl listener, Packet<?> packet) {
                 if (PacketBypass.isBypassed()) {
@@ -114,7 +112,9 @@ public final class PacketFilterService {
         // Tab list control
         // ------------------------------------------------------------------
 
-        /** Removes all other players from an unauthenticated viewer's tab list. */
+        /**
+         * Removes all other players from an unauthenticated viewer's tab list.
+         */
         public void hideOtherPlayers(ServerPlayer viewer, MinecraftServer server) {
                 List<UUID> others = new ArrayList<>();
                 for (ServerPlayer online : server.getPlayerList().getPlayers()) {
@@ -130,14 +130,6 @@ public final class PacketFilterService {
 
         /**
          * Re-adds every online player to a freshly authenticated viewer's tab list.
-         *
-         * <p>Since 1.2.3 this sends exactly the packet vanilla sends to a joining
-         * player ({@code createPlayerInitializing}: ADD_PLAYER + UPDATE_LISTED +
-         * gamemode/latency/display-name/hat). A tab entry is only <em>rendered</em>
-         * when its "listed" bit is set; the previous ADD_PLAYER-only re-add left
-         * the entries present but unlisted, so the player's tab list stayed empty
-         * until the next full rejoin — the "player has to rejoin to get the tab
-         * back" report.</p>
          */
         public void restoreOtherPlayers(ServerPlayer viewer, MinecraftServer server) {
                 PacketBypass.run(() -> viewer.connection.send(ClientboundPlayerInfoUpdatePacket
@@ -145,11 +137,10 @@ public final class PacketFilterService {
         }
 
         /**
-         * Re-sends the server's scoreboard state (teams + every displayed
-         * objective) to a freshly authenticated viewer, mirroring vanilla's
-         * join-time sync. Objectives created while the viewer was quarantined
-         * had their packets dropped by the filter; without this re-sync they
-         * would only appear on the next scoreboard change.
+         * Re-sends the server's scoreboard state (teams + every displayed objective) to a freshly
+         * authenticated viewer, mirroring vanilla's join-time sync.
+         * Objectives created while the viewer was quarantined had their packets dropped by the filter; without
+         * this re-sync they would only appear on the next scoreboard change.
          */
         public void restoreScoreboard(ServerPlayer viewer, MinecraftServer server) {
                 try {
@@ -178,10 +169,9 @@ public final class PacketFilterService {
         }
 
         /**
-         * Re-sends the full data of every map item the freshly authenticated
-         * viewer carries. The vanilla sender marks dropped map packets as
-         * delivered, so held maps would otherwise stay blank until their data
-         * changes again (the "idk about maps" gap).
+         * Re-sends the full data of every map item the freshly authenticated viewer carries.
+         * The vanilla sender marks dropped map packets as delivered, so held maps would otherwise stay blank
+         * until their data changes again (the "idk about maps" gap).
          */
         public void resendMapData(ServerPlayer viewer) {
                 if (!authManager.config().worldInfo.hideMaps) {
@@ -225,8 +215,8 @@ public final class PacketFilterService {
         // ------------------------------------------------------------------
 
         /**
-         * Replaces the client's command tree with one containing only the
-         * authentication commands, so no server command names leak pre-auth.
+         * Replaces the client's command tree with one containing only the authentication commands, so no
+         * server command names leak pre-auth.
          */
         public void sendMinimalCommandTree(ServerPlayer viewer) {
                 try {
@@ -245,7 +235,9 @@ public final class PacketFilterService {
                 }
         }
 
-        /** Restores the player's real, permission-filtered command tree. */
+        /**
+         * Restores the player's real, permission-filtered command tree.
+         */
         public void restoreCommandTree(ServerPlayer viewer) {
                 try {
                         PacketBypass.run(() -> viewer.level().getServer().getCommands().sendCommands(viewer));
@@ -261,7 +253,9 @@ public final class PacketFilterService {
                 root.addChild((CommandNode<SharedSuggestionProvider>) node);
         }
 
-        /** Only-literals inspector for {@link ClientboundCommandsPacket}. */
+        /**
+         * Only-literals inspector for ClientboundCommandsPacket.
+         */
         @SuppressWarnings("rawtypes")
         static final class MinimalTreeInspector implements ClientboundCommandsPacket.NodeInspector {
 

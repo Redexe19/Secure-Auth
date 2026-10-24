@@ -32,34 +32,27 @@ import net.secureauth.world.AuthWorldManager;
 
 /**
  * All SecureAuth commands.
- *
- * <p>User commands ({@code /register}, {@code /login}, {@code /logout},
- * {@code /changepassword}, {@code /unregister}) are thin forwarders: every
- * piece of feedback for them is produced by {@link AuthManager}, which sends
- * chat and GUI results itself. This class only adds argument validation
- * (password confirmation) and the session-state gate for registration.</p>
- *
- * <p>{@code /auth …} is the administration interface, gated by the vanilla
- * permission level configured in {@code administration.adminOpLevel}. Its
- * feedback is sent through {@link AuthManager#sendTranslated} when the
- * administrator is a player, and as plain system messages when it is the
- * console.</p>
- *
- * <p>Security rules enforced here:</p>
- * <ul>
- *   <li>Password arguments are {@code word()} arguments, never greedy — the
- *       confirmation argument would otherwise swallow the rest of the line.</li>
- *   <li>No feedback path ever echoes a password back to the sender.</li>
- *   <li>Every repository access is wrapped so a database failure degrades into
- *       a translated "service unavailable" reply instead of an exception
- *       bubbling into the command dispatcher (fail closed, never fail open).</li>
- *   <li>Missing session, disabled mod or a null manager is treated as
- *       "not authenticated" — never as success.</li>
- * </ul>
+ * User commands (/register, /login, /logout, /changepassword, /unregister) are thin forwarders: every
+ * piece of feedback for them is produced by AuthManager, which sends chat and GUI results itself.
+ * This class only adds argument validation (password confirmation) and the session-state gate for
+ * registration. /auth … is the administration interface, gated by the vanilla permission level
+ * configured in administration.adminOpLevel.
+ * Its feedback is sent through sendTranslated when the administrator is a player, and as plain system
+ * messages when it is the console.
+ * Security rules enforced here: Password arguments are word arguments, never greedy — the
+ * confirmation argument would otherwise swallow the rest of the line.
+ * No feedback path ever echoes a password back to the sender.
+ * Every repository access is wrapped so a database failure degrades into a translated "service
+ * unavailable" reply instead of an exception bubbling into the command dispatcher (fail closed, never
+ * fail open).
+ * Missing session, disabled mod or a null manager is treated as "not authenticated" — never as
+ * success.
  */
 public final class AuthCommands {
 
-        /** Accounts shown per page by {@code /auth list}. */
+        /**
+         * Accounts shown per page by /auth list.
+         */
         private static final int PAGE_SIZE = 10;
 
         private AuthCommands() {
@@ -71,7 +64,7 @@ public final class AuthCommands {
 
         /**
          * Registers all SecureAuth commands into the server command dispatcher.
-         * Called by {@code CommandRegistrationCallback} during server start.
+         * Called by CommandRegistrationCallback during server start.
          */
         public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
                 registerUserCommands(dispatcher);
@@ -79,7 +72,7 @@ public final class AuthCommands {
         }
 
         private static void registerUserCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
-                // /register <password> <confirm>
+                // /register
                 dispatcher.register(Commands.literal("register")
                                 .then(Commands.argument("password", StringArgumentType.word())
                                                 .then(Commands.argument("confirm", StringArgumentType.word())
@@ -87,7 +80,7 @@ public final class AuthCommands {
                                                                                 StringArgumentType.getString(context, "password"),
                                                                                 StringArgumentType.getString(context, "confirm"))))));
 
-                // /login <password>
+                // /login
                 dispatcher.register(Commands.literal("login")
                                 .then(Commands.argument("password", StringArgumentType.word())
                                                 .executes(context -> login(context.getSource(),
@@ -101,7 +94,7 @@ public final class AuthCommands {
                 dispatcher.register(Commands.literal("authpanel")
                                 .executes(context -> openPanel(context.getSource())));
 
-                // /changepassword <oldPassword> <newPassword> <confirm>
+                // /changepassword
                 dispatcher.register(Commands.literal("changepassword")
                                 .then(Commands.argument("oldPassword", StringArgumentType.word())
                                                 .then(Commands.argument("newPassword", StringArgumentType.word())
@@ -111,7 +104,7 @@ public final class AuthCommands {
                                                                                                 StringArgumentType.getString(context, "newPassword"),
                                                                                                 StringArgumentType.getString(context, "confirm")))))));
 
-                // /unregister <password>
+                // /unregister
                 dispatcher.register(Commands.literal("unregister")
                                 .then(Commands.argument("password", StringArgumentType.word())
                                                 .executes(context -> unregister(context.getSource(),
@@ -207,7 +200,9 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        /** Opens the chest auth panel — works on completely vanilla clients. */
+        /**
+         * Opens the chest auth panel — works on completely vanilla clients.
+         */
         private static int openPanel(CommandSourceStack source) {
                 AuthManager manager = manager();
                 ServerPlayer player = source.getPlayer();
@@ -480,7 +475,9 @@ public final class AuthCommands {
                 return Command.SINGLE_SUCCESS;
         }
 
-        /** /auth panel — the admin chest GUI over the live session table. */
+        /**
+         * /auth panel — the admin chest GUI over the live session table.
+         */
         private static int adminPanel(CommandSourceStack source) {
                 AuthManager manager = requireManager(source);
                 if (manager == null) {
@@ -559,13 +556,17 @@ public final class AuthCommands {
         // Shared helpers
         // ------------------------------------------------------------------
 
-        /** The live auth manager, or {@code null} when the mod is absent or disabled. */
+        /**
+         * The live auth manager, or null when the mod is absent or disabled.
+         */
         private static AuthManager manager() {
                 SecureAuth mod = SecureAuth.get();
                 return mod != null ? mod.authManager() : null;
         }
 
-        /** Resolves the manager or replies with a generic failure (never returns silently). */
+        /**
+         * Resolves the manager or replies with a generic failure (never returns silently).
+         */
         private static AuthManager requireManager(CommandSourceStack source) {
                 AuthManager manager = manager();
                 if (manager == null) {
@@ -575,10 +576,10 @@ public final class AuthCommands {
         }
 
         /**
-         * Admin gate: the vanilla permission level configured under
-         * {@code administration.adminOpLevel}. Console sources always pass. Sends
-         * {@code auth.admin.permission} and returns false when the gate fails —
-         * or when the permission subsystem itself misbehaves (fail closed).
+         * Admin gate: the vanilla permission level configured under administration.adminOpLevel.
+         * Console sources always pass.
+         * Sends auth.admin.permission and returns false when the gate fails — or when the permission subsystem
+         * itself misbehaves (fail closed).
          */
         private static boolean requireAdmin(CommandSourceStack source, AuthManager manager) {
                 int level = Math.min(4, Math.max(1, manager.config().administration.adminOpLevel));
@@ -596,9 +597,8 @@ public final class AuthCommands {
         }
 
         /**
-         * Sends admin feedback: through the manager (prefixed chat, bypassing the
-         * pre-auth packet filter) when the administrator is a player, and as a
-         * plain system message when it is the console.
+         * Sends admin feedback: through the manager (prefixed chat, bypassing the pre-auth packet filter) when
+         * the administrator is a player, and as a plain system message when it is the console.
          */
         private static void reply(CommandSourceStack source, AuthManager manager, String key, Object... args) {
                 ServerPlayer player = source.getPlayer();
@@ -615,9 +615,9 @@ public final class AuthCommands {
         }
 
         /**
-         * Looks up the account for a player name of any casing. Replies with
-         * {@code auth.admin.unknownPlayer} (or a storage failure) and returns
-         * {@code null} when the account cannot be resolved.
+         * Looks up the account for a player name of any casing.
+         * Replies with auth.admin.unknownPlayer (or a storage failure) and returns null when the account
+         * cannot be resolved.
          */
         private static Account lookupAccount(CommandSourceStack source, AuthManager manager, String name) {
                 Account account;
@@ -636,13 +636,9 @@ public final class AuthCommands {
         }
 
         /**
-         * Journals a store failure with its ROOT CAUSE (since 1.2.4). Previously the
-         * admin commands swallowed StoreException behind a generic "service
-         * unavailable" with nothing in any log — a flaky reset was undiagnosable
-         * (was it a full disk? a locked file? a broken connection?). Now the exact
-         * cause (e.g. {@code SQLiteException: database disk is full}) lands in the
-         * security log AND the server log, while the player-facing message stays
-         * generic on purpose.
+         * Now the exact cause (e.g.
+         * SQLiteException: database disk is full) lands in the security log AND the server log, while the
+         * player-facing message stays generic on purpose.
          */
         private static void logStoreFailure(CommandSourceStack source, AuthManager manager, String operation,
                         StoreException e) {
@@ -650,7 +646,9 @@ public final class AuthCommands {
                                 operation + ":" + net.secureauth.account.StoreException.describe(e));
         }
 
-        /** Finds an online player by name, case-insensitively; {@code null} when offline. */
+        /**
+         * Finds an online player by name, case-insensitively; null when offline.
+         */
         private static ServerPlayer findOnline(CommandSourceStack source, String name) {
                 String norm = AccountRepository.normalize(name);
                 for (ServerPlayer online : source.getServer().getPlayerList().getPlayers()) {
@@ -669,7 +667,9 @@ public final class AuthCommands {
                 }
         }
 
-        /** IP of the command source, or {@code null} for the console (blank fields are skipped by the logger). */
+        /**
+         * IP of the command source, or null for the console (blank fields are skipped by the logger).
+         */
         private static String actorIp(CommandSourceStack source) {
                 ServerPlayer player = source.getPlayer();
                 if (player == null) {
@@ -687,12 +687,11 @@ public final class AuthCommands {
         // ------------------------------------------------------------------
 
         /**
-         * Copies every field of every section from the freshly loaded config into
-         * the live instance, so runtime services that hold the live config object
-         * see the new values immediately. Services that captured values when they
-         * were constructed (rate limiter capacities, hash parameters of already
-         * stored passwords, the database path) only pick changes up after a
-         * restart — the reload success message says so.
+         * Copies every field of every section from the freshly loaded config into the live instance, so
+         * runtime services that hold the live config object see the new values immediately.
+         * Services that captured values when they were constructed (rate limiter capacities, hash parameters
+         * of already stored passwords, the database path) only pick changes up after a restart — the reload
+         * success message says so.
          */
         private static void copyInto(AuthConfig live, AuthConfig fresh) {
                 live.authentication.enabled = fresh.authentication.enabled;

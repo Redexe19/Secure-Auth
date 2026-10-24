@@ -42,21 +42,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * SecureAuth server entrypoint: wires the services together and registers all
- * Fabric events. The mod is <strong>server-side only</strong> — every player
- * interaction happens through chat commands and the vanilla-compatible chest
- * panel, so completely unmodified clients can join.
- *
- * <p>When {@code authentication.enabled == false} the mod is completely inert:
- * nothing is registered and every mixin passes straight through. All guards
- * fail closed — a missing manager, disabled mod or missing session always
- * counts as "not authenticated".</p>
+ * SecureAuth server entrypoint: wires the services together and registers all Fabric events.
+ * The mod is server-side only — every player interaction happens through chat commands and the
+ * vanilla-compatible chest panel, so completely unmodified clients can join.
+ * When authentication.enabled == false the mod is completely inert: nothing is registered and every
+ * mixin passes straight through.
+ * All guards fail closed — a missing manager, disabled mod or missing session always counts as "not
+ * authenticated".
  */
 public final class SecureAuth implements ModInitializer {
 
         private static final Logger LOGGER = LoggerFactory.getLogger("secureauth");
 
-        /** Fabric mod id of this mod. */
+        /**
+         * Fabric mod id of this mod.
+         */
         public static final String MOD_ID = "secureauth";
 
         private static volatile SecureAuth instance;
@@ -72,12 +72,16 @@ public final class SecureAuth implements ModInitializer {
                 return instance;
         }
 
-        /** False while the mod is disabled (or the server has stopped). */
+        /**
+         * False while the mod is disabled (or the server has stopped).
+         */
         public boolean enabled() {
                 return enabled;
         }
 
-        /** The manager, or {@code null} while disabled (guards must fail closed). */
+        /**
+         * The manager, or null while disabled (guards must fail closed).
+         */
         public AuthManager authManager() {
                 return enabled ? authManager : null;
         }
@@ -86,7 +90,8 @@ public final class SecureAuth implements ModInitializer {
         public void onInitialize() {
                 instance = this;
 
-                // --- 1. Configuration --------------------------------------------------
+                // --- 1.
+// Configuration --------------------------------------------------
                 Path configFile = FabricLoader.getInstance().getGameDir().resolve("config/secureauth/config.yml");
 
                 // Server-side message catalogs: every player-visible string is resolved
@@ -112,7 +117,8 @@ public final class SecureAuth implements ModInitializer {
                         return;
                 }
 
-                // --- 2. Storage (fail closed when unavailable) ---------------------------
+                // --- 2.
+// Storage (fail closed when unavailable) ---------------------------
                 AccountDatabase db = new AccountDatabase(loaded);
                 try {
                         db.open();
@@ -122,7 +128,8 @@ public final class SecureAuth implements ModInitializer {
                 }
                 this.database = db;
 
-                // --- 3. Services ----------------------------------------------------------
+                // --- 3.
+// Services ----------------------------------------------------------
                 AccountRepository repository = new AccountRepository(db);
                 PasswordService passwords = new PasswordService(loaded);
                 if (!passwords.isArgon2Available()) {
@@ -140,7 +147,7 @@ public final class SecureAuth implements ModInitializer {
                 this.enabled = true;
 
                 if (loaded.upgradedTemplateDefaults()) {
-                        LOGGER.info("SecureAuth: untouched 1.2.1 template defaults upgraded to 1.2.2 "
+                        LOGGER.info("SecureAuth: untouched legacy template defaults upgraded to current defaults "
                                         + "(platformY 64 -> 200, maxDriftBlocks 8.0 -> 1.5); set these keys "
                                         + "explicitly in secureauth.yml to pin your own values.");
                 }
@@ -155,7 +162,8 @@ public final class SecureAuth implements ModInitializer {
                                         loaded.authentication.sessionPersistSeconds);
                 }
 
-                // --- 4. Connection lifecycle ----------------------------------------------
+                // --- 4.
+// Connection lifecycle ----------------------------------------------
                 ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
                         if (handler.player != null) {
                                 manager.onJoin(handler.player);
@@ -167,14 +175,15 @@ public final class SecureAuth implements ModInitializer {
                         }
                 });
                 ServerTickEvents.END_SERVER_TICK.register(manager::tick);
-                // Account-store self-check (since 1.2.4): every 30 seconds the SQLite
+                
                 // connection is probed and, when it is unhealthy (I/O hiccup, native
                 // error, broken transaction state), transparently closed and reopened.
                 // A once-broken store used to stay broken for the rest of the session —
                 // every /auth reset answered "service unavailable" — now it heals itself.
                 ServerTickEvents.END_SERVER_TICK.register(this::tickStoreHealth);
-                // Damage cancellation inside the auth dimension (since 1.2.4): the
-                // sandbox is a waiting room. Fall damage from a mid-air rejoin, void
+                
+                // sandbox is a waiting room.
+// Fall damage from a mid-air rejoin, void
                 // damage below the cell, damage from anything else — none of it may
                 // ever hurt a player while they are inside secureauth:auth.
                 if (loaded.worldProtection.noDamageInSandbox) {
@@ -196,10 +205,12 @@ public final class SecureAuth implements ModInitializer {
                 ServerLifecycleEvents.SERVER_STARTED.register(this::wipeAuthDimension);
                 ServerLifecycleEvents.SERVER_STOPPED.register(this::shutdown);
 
-                // --- 5. Respawn guard -----------------------------------------------------
+                // --- 5.
+// Respawn guard -----------------------------------------------------
                 ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> manager.onRespawn(oldPlayer, newPlayer));
 
-                // --- 6. Interaction guards ------------------------------------------------
+                // --- 6.
+// Interaction guards ------------------------------------------------
                 if (loaded.worldProtection.blockInteraction) {
                         PlayerBlockBreakEvents.BEFORE.register((level, player, pos, state, blockEntity) ->
                                         player instanceof ServerPlayer serverPlayer
@@ -223,7 +234,8 @@ public final class SecureAuth implements ModInitializer {
                                                         : InteractionResult.PASS);
                 }
 
-                // --- 7. Chat guard ----------------------------------------------------------
+                // --- 7.
+// Chat guard ----------------------------------------------------------
                 if (loaded.worldProtection.blockChat) {
                         ServerMessageEvents.ALLOW_CHAT_MESSAGE.register((message, sender, params) -> {
                                 AuthManager live = authManager();
@@ -235,7 +247,8 @@ public final class SecureAuth implements ModInitializer {
                         });
                 }
 
-                // --- 8. Commands -------------------------------------------------------------
+                // --- 8.
+// Commands -------------------------------------------------------------
                 CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, environment) -> {
                         try {
                                 AuthCommands.register(dispatcher);
@@ -244,7 +257,8 @@ public final class SecureAuth implements ModInitializer {
                         }
                 });
 
-                // --- 9. Init summary -----------------------------------------------------------
+                // --- 9.
+// Init summary -----------------------------------------------------------
                 String version = FabricLoader.getInstance().getModContainer(MOD_ID)
                                 .map(container -> container.getMetadata().getVersion().getFriendlyString())
                                 .orElse("unknown");
@@ -276,10 +290,14 @@ public final class SecureAuth implements ModInitializer {
         // Wiring helpers
         // ------------------------------------------------------------------
 
-        /** Tick counter for the periodic store health probe (once per 30 s). */
+        /**
+         * Tick counter for the periodic store health probe (once per 30 s).
+         */
         private long storeHealthTicks;
 
-        /** Probes the account database connection every 30 seconds and heals it when broken. */
+        /**
+         * Probes the account database connection every 30 seconds and heals it when broken.
+         */
         private void tickStoreHealth(MinecraftServer server) {
                 if (database == null || !enabled) {
                         return;
@@ -295,15 +313,17 @@ public final class SecureAuth implements ModInitializer {
         }
 
         /**
-         * The loaded configuration, or {@code null} before initialisation / while
-         * the mod is disabled. Read by mixins that run before the auth manager
-         * exists (e.g. the per-boot dimension re-seed during createLevels).
+         * The loaded configuration, or null before initialisation / while the mod is disabled.
+         * Read by mixins that run before the auth manager exists (e.g. the per-boot dimension re-seed during
+         * createLevels).
          */
         public AuthConfig config() {
                 return config;
         }
 
-        /** Best-effort IP string for security logs (never blank). */
+        /**
+         * Best-effort IP string for security logs (never blank).
+         */
         private static String safeIp(ServerPlayer player) {
                 try {
                         String ip = player.getIpAddress();
@@ -313,7 +333,9 @@ public final class SecureAuth implements ModInitializer {
                 }
         }
 
-        /** True when the interaction may proceed; sends throttled feedback otherwise. */
+        /**
+         * True when the interaction may proceed; sends throttled feedback otherwise.
+         */
         private boolean interactionGuard(ServerPlayer player, boolean isBreak) {
                 AuthManager manager = authManager();
                 if (manager == null) {
@@ -336,7 +358,10 @@ public final class SecureAuth implements ModInitializer {
                 return false;
         }
 
-        /** Sends a throttled (max 1 per 3 seconds) "blocked" notice. Returns true when sent. */
+        /**
+         * Sends a throttled (max 1 per 3 seconds) "blocked" notice.
+         * Returns true when sent.
+         */
         private boolean blockedNotice(AuthManager manager, ServerPlayer player, String key) {
                 AuthSession session = manager.session(player);
                 if (session == null) {
@@ -355,9 +380,10 @@ public final class SecureAuth implements ModInitializer {
                 if (securityLogger != null) {
                         securityLogger.log(SecurityEvent.SERVER_STOPPED, MOD_ID, "");
                 }
-                // Reset the auth dimension after everything is saved and closed (since
-                // 1.2.2 every restart regenerates the void from scratch: no chunk files,
-                // no entities, no accumulated state, no lag growth). The same wipe runs
+                
+                
+                // no entities, no accumulated state, no lag growth).
+// The same wipe runs
                 // again right after the next server start, so a locked file here simply
                 // delays the reset by one boot cycle.
                 if (enabled && server != null) {
@@ -385,7 +411,9 @@ public final class SecureAuth implements ModInitializer {
                 authManager = null;
         }
 
-        /** Entry point for the SERVER_STARTED reset (see {@link #clearAuthDimension}). */
+        /**
+         * Entry point for the SERVER_STARTED reset (see clearAuthDimension).
+         */
         private void wipeAuthDimension(MinecraftServer server) {
                 try {
                         clearAuthDimension(server);
@@ -395,25 +423,18 @@ public final class SecureAuth implements ModInitializer {
         }
 
         /**
-         * Resets the auth dimension to a freshly generated void on every server
-         * restart (since 1.2.2, {@code worldProtection.resetOnRestart=true}).
-         *
-         * <p>Every saved chunk file of the auth dimension (region, entities, poi) is
-         * deleted on SERVER_STOPPED (after the worlds are flushed and closed) and
-         * again on SERVER_STARTED (before the first player can join). Because the
-         * generator is flat air, regenerating is free: nothing can be lost, the
-         * platform is rebuilt by {@code AuthWorldManager} on the first quarantine,
-         * and the dimension's seed is re-randomised per boot by the
-         * {@code MinecraftServerMixin} wrap — so every restart produces a fresh,
-         * uncorrelated, empty void. This also keeps the dimension's folder from
-         * ever accumulating chunk files, so unauthenticated traffic cannot grow
-         * saved state (no lag creep from the sandbox).</p>
-         *
-         * <p>A locked file (antivirus, backup tool, crash) simply delays the wipe
-         * to the next start/stop; the runtime purifier in
-         * {@code AuthWorldManager} heals whatever a failed wipe leaves behind, so
-         * the pure-void contract holds regardless. No marker file is used: the
-         * wipe is unconditional and idempotent.</p>
+         * Every saved chunk file of the auth dimension (region, entities, poi) is deleted on SERVER_STOPPED
+         * (after the worlds are flushed and closed) and again on SERVER_STARTED (before the first player can
+         * join).
+         * Because the generator is flat air, regenerating is free: nothing can be lost, the platform is
+         * rebuilt by AuthWorldManager on the first quarantine, and the dimension's seed is re-randomised per
+         * boot by the MinecraftServerMixin wrap — so every restart produces a fresh, uncorrelated, empty void.
+         * This also keeps the dimension's folder from ever accumulating chunk files, so unauthenticated
+         * traffic cannot grow saved state (no lag creep from the sandbox).
+         * A locked file (antivirus, backup tool, crash) simply delays the wipe to the next start/stop; the
+         * runtime purifier in AuthWorldManager heals whatever a failed wipe leaves behind, so the pure-void
+         * contract holds regardless.
+         * No marker file is used: the wipe is unconditional and idempotent.
          */
         private void clearAuthDimension(MinecraftServer server) {
                 if (!("auth_dimension".equals(config.worldProtection.isolationMode)
@@ -424,7 +445,7 @@ public final class SecureAuth implements ModInitializer {
                                 .resolve("dimensions").resolve("secureauth").resolve("auth");
                 int removed = 0;
                 int failed = 0;
-                // Clean up the 1.2.1 migration marker if a previous version left one.
+                
                 try {
                         Files.deleteIfExists(dimDir.resolve("void-v3.marker"));
                 } catch (IOException ignored) {
