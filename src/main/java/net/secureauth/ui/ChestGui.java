@@ -8,7 +8,7 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -18,38 +18,38 @@ import net.secureauth.lang.Lang;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
- * Base class for SecureAuth's server-built chest menus — the "economy shop
- * plugin" GUI pattern for vanilla clients.
- *
- * <p>The server opens a menu whose {@link MenuType} is one of the vanilla
- * generic 9xN chest types, so an unmodified client renders it as an ordinary
- * chest screen. Clicks arrive as ordinary container-click packets; this class
- * intercepts them (never calling {@code super.clicked}) so the virtual button
- * items can never be picked up, moved or duplicated. The vanilla click
- * protocol self-corrects the client's optimistic prediction, so a swallowed
- * click simply snaps back on the player's screen.</p>
- *
- * <p>Every item name and lore line is resolved server-side into literal text
- * (vanilla clients have no {@code auth.*} translations — translatable
- * components would render as raw keys inside the chest screen).</p>
- *
- * <p>Every subclass is viewer-bound ({@link #stillValid} fails for anyone
- * else) and rate-limited against click spam.</p>
+ * Base class for SecureAuth's server-built chest menus — the "economy shop plugin" GUI pattern for
+ * vanilla clients.
+ * The server opens a menu whose MenuType is one of the vanilla generic 9xN chest types, so an
+ * unmodified client renders it as an ordinary chest screen.
+ * Clicks arrive as ordinary container-click packets; this class intercepts them (never calling
+ * super.clicked) so the virtual button items can never be picked up, moved or duplicated.
+ * The vanilla click protocol self-corrects the client's optimistic prediction, so a swallowed click
+ * simply snaps back on the player's screen.
+ * Every item name and lore line is resolved server-side into literal text (vanilla clients have no
+ * auth.* translations — translatable components would render as raw keys inside the chest screen).
+ * Every subclass is viewer-bound (stillValid fails for anyone else) and rate-limited against click
+ * spam.
  */
 public abstract class ChestGui extends ChestMenu {
 
-        /** Minimum gap between two processed clicks on the same panel. */
-        private static final long CLICK_MIN_INTERVAL_MS = 100L;
+        /**
+         * Minimum gap between two processed clicks on the same panel.
+         */
+        private static final long CLICK_MIN_INTERVAL_NANOS = TimeUnit.MILLISECONDS.toNanos(100L);
 
-        /** Minimum gap between two click-spam log entries. */
-        private static final long SPAM_LOG_INTERVAL_MS = 5_000L;
+        /**
+         * Minimum gap between two click-spam log entries.
+         */
+        private static final long SPAM_LOG_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(5L);
 
         private final ServerPlayer viewer;
 
-        private long lastClickAt;
-        private long lastSpamLogAt;
+        private long lastClickAtNanos;
+        private long lastSpamLogAtNanos;
 
         protected ChestGui(MenuType<?> type, int containerId, Inventory playerInventory, int rows,
                         ServerPlayer viewer) {
@@ -57,12 +57,16 @@ public abstract class ChestGui extends ChestMenu {
                 this.viewer = viewer;
         }
 
-        /** The player this menu was built for. */
+        /**
+         * The player this menu was built for.
+         */
         protected final ServerPlayer viewer() {
                 return viewer;
         }
 
-        /** The virtual container backing the chest grid. */
+        /**
+         * The virtual container backing the chest grid.
+         */
         protected final SimpleContainer gui() {
                 return (SimpleContainer) getContainer();
         }
@@ -71,12 +75,16 @@ public abstract class ChestGui extends ChestMenu {
         // Item helpers
         // ------------------------------------------------------------------
 
-        /** Places a button item into a chest-grid slot. */
+        /**
+         * Places a button item into a chest-grid slot.
+         */
         protected final void set(int slot, ItemStack stack) {
                 gui().setItem(slot, stack);
         }
 
-        /** Fills every grid slot that is currently air with the filler pane. */
+        /**
+         * Fills every grid slot that is currently air with the filler pane.
+         */
         protected final void fill() {
                 int size = getRowCount() * 9;
                 for (int slot = 0; slot < size; slot++) {
@@ -86,21 +94,27 @@ public abstract class ChestGui extends ChestMenu {
                 }
         }
 
-        /** An item with a custom (non-italic) display name. */
+        /**
+         * An item with a custom (non-italic) display name.
+         */
         protected static ItemStack named(Item item, Component name) {
                 ItemStack stack = new ItemStack(item);
                 stack.set(DataComponents.ITEM_NAME, name);
                 return stack;
         }
 
-        /** An item with a custom name plus a lore list (dark gray by convention). */
+        /**
+         * An item with a custom name plus a lore list (dark gray by convention).
+         */
         protected static ItemStack named(Item item, Component name, List<Component> lore) {
                 ItemStack stack = named(item, name);
                 stack.set(DataComponents.LORE, new ItemLore(lore));
                 return stack;
         }
 
-        /** Convenience lore builder. */
+        /**
+         * Convenience lore builder.
+         */
         protected static List<Component> lore(Component... lines) {
                 List<Component> list = new ArrayList<>(lines.length);
                 for (Component line : lines) {
@@ -109,12 +123,16 @@ public abstract class ChestGui extends ChestMenu {
                 return list;
         }
 
-        /** A single gray lore line, resolved server-side for the viewer's language. */
+        /**
+         * A single gray lore line, resolved server-side for the viewer's language.
+         */
         protected final Component line(String key) {
                 return Lang.plain(viewer(), key).withStyle(ChatFormatting.GRAY);
         }
 
-        /** A single gray lore line with one argument, resolved server-side. */
+        /**
+         * A single gray lore line with one argument, resolved server-side.
+         */
         protected final Component line(String key, Object arg) {
                 return Lang.plain(viewer(), key, arg).withStyle(ChatFormatting.GRAY);
         }
@@ -124,20 +142,20 @@ public abstract class ChestGui extends ChestMenu {
         // ------------------------------------------------------------------
 
         @Override
-        public final void clicked(int slotIndex, int button, ContainerInput clickType, Player player) {
+        public final void clicked(int slotIndex, int button, ClickType clickType, Player player) {
                 if (player != viewer) {
                         return;
                 }
-                long now = System.currentTimeMillis();
-                if (now - lastClickAt < CLICK_MIN_INTERVAL_MS) {
+                long now = System.nanoTime();
+                if (lastClickAtNanos != 0L && now - lastClickAtNanos < CLICK_MIN_INTERVAL_NANOS) {
                         // Rapid multi-click: ignore, and log a single INVALID_AUTH_PACKET per window.
-                        if (now - lastSpamLogAt > SPAM_LOG_INTERVAL_MS) {
-                                lastSpamLogAt = now;
+                        if (lastSpamLogAtNanos == 0L || now - lastSpamLogAtNanos >= SPAM_LOG_INTERVAL_NANOS) {
+                                lastSpamLogAtNanos = now;
                                 onClickSpam();
                         }
                         return;
                 }
-                lastClickAt = now;
+                lastClickAtNanos = now;
 
                 int gridSize = getRowCount() * 9;
                 if (slotIndex >= 0 && slotIndex < gridSize) {
@@ -148,10 +166,14 @@ public abstract class ChestGui extends ChestMenu {
                 // sync protocol that runs right after this method returns.
         }
 
-        /** A real (rate-limited) click on chest-grid slot {@code slot}. */
+        /**
+         * A real (rate-limited) click on chest-grid slot slot.
+         */
         protected abstract void onClick(int slot);
 
-        /** Called at most once per spam window when clicks arrive faster than allowed. */
+        /**
+         * Called at most once per spam window when clicks arrive faster than allowed.
+         */
         protected void onClickSpam() {
                 // Subclasses override to audit-log the abuse.
         }
@@ -175,17 +197,21 @@ public abstract class ChestGui extends ChestMenu {
                 }
         }
 
-        /** Called when the viewer closes the menu (or is disconnected). */
+        /**
+         * Called when the viewer closes the menu (or is disconnected).
+         */
         protected void onClosed() {
                 // Subclasses override to clear session state.
         }
 
-        /** Pushes any item changes made since the last sync to the client. */
+        
         public final void sync() {
                 broadcastChanges();
         }
 
-        /** Rebuilds every grid item (after a state change) and syncs the client. */
+        /**
+         * Rebuilds every grid item (after a state change) and syncs the client.
+         */
         public final void refresh() {
                 int size = getRowCount() * 9;
                 for (int slot = 0; slot < size; slot++) {
@@ -195,18 +221,25 @@ public abstract class ChestGui extends ChestMenu {
                 sync();
         }
 
-        /** (Re)builds the grid contents. Called on open and on every {@link #refresh()}. */
+        /**
+         * (Re)builds the grid contents.
+         * Called on open and on every refresh().
+         */
         protected abstract void build();
 
-        /** Menu title shown above the chest grid. */
+        /**
+         * Menu title shown above the chest grid.
+         */
         public abstract Component title();
 
         // ------------------------------------------------------------------
         // Shared button items
         // ------------------------------------------------------------------
 
-        /** The gray filler pane used for empty grid slots (name is a single space). */
+        /**
+         * The gray filler pane used for empty grid slots (name is a single space).
+         */
         protected static ItemStack fillerPane() {
-                return named(Items.STAINED_GLASS_PANE.gray(), Component.literal(" "));
+                return named(Items.GRAY_STAINED_GLASS_PANE, Component.literal(" "));
         }
 }

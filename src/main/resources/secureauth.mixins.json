@@ -1,8 +1,8 @@
 {
-	"required": false,
+	"required": true,
 	"minVersion": "0.8",
 	"package": "net.secureauth.mixin",
-	"compatibilityLevel": "JAVA_25",
+	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"ServerCommonPacketListenerImplMixin",
 		"CommandsMixin",
@@ -13,6 +13,6 @@
 		"EntityMixin"
 	],
 	"injectors": {
-		"defaultRequire": 0
+		"defaultRequire": 1
 	}
 }

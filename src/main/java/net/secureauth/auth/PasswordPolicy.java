@@ -3,7 +3,8 @@ package net.secureauth.auth;
 import net.secureauth.config.AuthConfig;
 
 /**
- * Password composition policy. Deliberately minimal: length bounds only.
+ * Password composition policy.
+ * Deliberately minimal: length bounds only.
  * Complicated composition rules hurt security more than they help.
  */
 public final class PasswordPolicy {

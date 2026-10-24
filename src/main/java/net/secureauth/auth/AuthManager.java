@@ -22,21 +22,19 @@ import net.secureauth.world.AuthWorldManager;
 
 /**
  * Central integration hub of the server-side authentication flow.
- *
- * <p>Owns the per-connection {@link AuthSession} map and orchestrates every
- * state transition: join (quarantine), login/register attempts, logout, password
- * change, unregister, timeout and disconnect. All feedback to the player is
- * produced here — chat messages, the action-bar countdown and the
- * vanilla-compatible chest panel from {@link AuthPanel}. No custom packets
- * exist anywhere in the mod, so it runs against completely unmodified
- * clients.</p>
- *
- * <p>Every guard fails closed: a missing session, a disabled mod, a locked
- * account or an unavailable store is always treated as "not authenticated".</p>
+ * Owns the per-connection AuthSession map and orchestrates every state transition: join (quarantine),
+ * login/register attempts, logout, password change, unregister, timeout and disconnect.
+ * All feedback to the player is produced here — chat messages, the action-bar countdown and the
+ * vanilla-compatible chest panel from AuthPanel.
+ * No custom packets exist anywhere in the mod, so it runs against completely unmodified clients.
+ * Every guard fails closed: a missing session, a disabled mod, a locked account or an unavailable
+ * store is always treated as "not authenticated".
  */
 public final class AuthManager {
 
-        /** Minimum interval between two feedback messages for one session (anti chat-spam). */
+        /**
+         * Minimum interval between two feedback messages for one session (anti chat-spam).
+         */
         private static final long FEEDBACK_MIN_INTERVAL_MS = 300L;
 
         private final AuthConfig config;
@@ -106,8 +104,8 @@ public final class AuthManager {
         }
 
         /**
-         * The live session of a connected player, or {@code null}. Every caller must
-         * treat {@code null} as "unauthenticated" (fail closed) — never as "allowed".
+         * The live session of a connected player, or null.
+         * Every caller must treat null as "unauthenticated" (fail closed) — never as "allowed".
          */
         public AuthSession session(ServerPlayer player) {
                 if (player == null) {
@@ -116,7 +114,9 @@ public final class AuthManager {
                 return sessions.get(player.getUUID());
         }
 
-        /** Server-authoritative authentication state (a missing session is NOT authenticated). */
+        /**
+         * Server-authoritative authentication state (a missing session is NOT authenticated).
+         */
         public boolean isAuthenticated(ServerPlayer player) {
                 AuthSession session = session(player);
                 return session != null && session.authenticated();
@@ -127,28 +127,30 @@ public final class AuthManager {
         // ------------------------------------------------------------------
 
         /**
-         * Creates the session for a freshly joined player, quarantines them in the
-         * auth area and applies world-information isolation. When the server-side
-         * session resume matches (same UUID, same IP, inside the persist window),
-         * the join is auto-authenticated instead and no quarantine happens.
+         * Creates the session for a freshly joined player, quarantines them in the auth area and applies
+         * world-information isolation.
+         * When the server-side session resume matches (same UUID, same IP, inside the persist window), the
+         * join is auto-authenticated instead and no quarantine happens.
          */
         public void onJoin(ServerPlayer player) {
                 if (player == null) {
                         return;
                 }
-                String usernameDisplay = player.getGameProfile().name();
+                String usernameDisplay = player.getGameProfile().getName();
                 String usernameNorm = AccountRepository.normalize(usernameDisplay);
                 String ip = player.getIpAddress() == null ? "unknown" : player.getIpAddress();
                 long now = System.currentTimeMillis();
 
-                // 1. Per-IP join limiter — before anything else.
+                // 1.
+// Per-IP join limiter — before anything else.
                 if (config.security.ipRateLimit && !ipJoinLimiter.tryAcquire(ip)) {
                         logger.log(SecurityEvent.LOGIN_FAILURE, usernameNorm, null, ip, "join_rate_limited");
                         AuthWorldManager.disconnect(player, Lang.comp(player, "auth.login.rateLimited"));
                         return;
                 }
 
-                // 2. Create the session (fail closed when the store is unavailable).
+                // 2.
+// Create the session (fail closed when the store is unavailable).
                 AuthSession session = new AuthSession(player, usernameNorm, usernameDisplay, ip);
                 try {
                         Account account = repository.findByUsernameNorm(usernameNorm).orElse(null);
@@ -164,7 +166,8 @@ public final class AuthManager {
                         logger.log(SecurityEvent.DATABASE_UNAVAILABLE, usernameNorm, null, ip, "join_lookup");
                 }
 
-                // 3. Server-side session resume (same-IP quick re-login, 12 h window by default).
+                // 3.
+// Server-side session resume (same-IP quick re-login, 12 h window by default).
                 if (resume.enabled() && session.account != null && !session.account.locked()
                                 && !session.account.inTemporaryLockout(now)
                                 && resume.matches(player.getUUID(), usernameNorm, ip)) {
@@ -182,10 +185,11 @@ public final class AuthManager {
                         session.state = AuthState.AUTHENTICATED;
                         session.authAtMs = now;
                         sessions.put(player.getUUID(), session);
-                        // 1.2.4 self-heal: a trusted rejoin whose save data still points INTO
+                        
                         // the auth dimension (the player disconnected while a release was
                         // still pending — e.g. a laggy server ate the transfer) used to spawn
-                        // them mid-fall inside the void, taking fall damage. They are moved
+                        // them mid-fall inside the void, taking fall damage.
+// They are moved
                         // back into the real world right here, before they can fall anywhere.
                         try {
                                 if (worldManager.rescueFromAuthDimension(player, session)) {
@@ -204,23 +208,24 @@ public final class AuthManager {
                 session.deadline = now + config.authentication.timeoutSeconds * 1000L;
                 sessions.put(player.getUUID(), session);
 
-                // 4. Physical quarantine (dimension or freeze-in-place fallback).
+                // 4.
+// Physical quarantine (dimension or freeze-in-place fallback).
                 worldManager.quarantine(player, session);
 
-                // 5. World-information isolation.
+                // 5.
+// World-information isolation.
                 applyIsolation(session);
 
-                // 6. Welcome message + authentication prompt (chat + chest panel).
+                // 6.
+// Welcome message + authentication prompt (chat + chest panel).
                 sendAuthPrompt(session);
         }
 
         /**
-         * Removes the session and clears per-connection trackers (always, even
-         * when no session was created). An unauthenticated player who is still
-         * physically inside the auth dimension is teleported back to their
-         * original location FIRST, so the player-data save triggered by this
-         * disconnect records a real-world position — otherwise their next join
-         * would spawn them inside the auth void.
+         * Removes the session and clears per-connection trackers (always, even when no session was created).
+         * An unauthenticated player who is still physically inside the auth dimension is teleported back to
+         * their original location FIRST, so the player-data save triggered by this disconnect records a
+         * real-world position — otherwise their next join would spawn them inside the auth void.
          */
         public void onDisconnect(ServerPlayer player) {
                 if (player == null) {
@@ -238,7 +243,7 @@ public final class AuthManager {
                                         truth = player.gameMode.getGameModeForPlayer();
                                 }
                                 resume.recordAuthenticated(player.getUUID(), session.usernameNorm, session.ip, truth);
-                                // 1.2.4: an authenticated player who is STILL inside the auth
+                                
                                 // dimension at disconnect (a laggy server ate the release
                                 // transfer) gets the same pre-save position repair as the
                                 // unauthenticated — their save data must never record the
@@ -264,9 +269,9 @@ public final class AuthManager {
         }
 
         /**
-         * Re-binds the session to the new {@link ServerPlayer} entity created by a
-         * respawn. The unauthenticated are re-quarantined (a respawn would otherwise
-         * place them into the real world); the authenticated simply continue.
+         * Re-binds the session to the new ServerPlayer entity created by a respawn.
+         * The unauthenticated are re-quarantined (a respawn would otherwise place them into the real world);
+         * the authenticated simply continue.
          */
         public void onRespawn(ServerPlayer oldPlayer, ServerPlayer newPlayer) {
                 if (newPlayer == null) {
@@ -298,8 +303,8 @@ public final class AuthManager {
         // ------------------------------------------------------------------
 
         /**
-         * Called every server tick: per-session world enforcement, timeout warnings
-         * and deadline kicks on a ~1 second cadence, plus periodic housekeeping.
+         * Called every server tick: per-session world enforcement, timeout warnings and deadline kicks on a ~1
+         * second cadence, plus periodic housekeeping.
          */
         public void tick(MinecraftServer server) {
                 if (server == null) {
@@ -317,7 +322,8 @@ public final class AuthManager {
                                         // the discarded entity — and ServerPlayer.teleport()
                                         // silently no-ops for removed entities, so every guard
                                         // below (drift, escape, release watchdog) would act on a
-                                        // ghost. The connection's public player field is the one
+                                        // ghost.
+// The connection's public player field is the one
                                         // reference vanilla itself keeps up to date.
                                         ServerPlayer live = session.player;
                                         try {
@@ -346,12 +352,14 @@ public final class AuthManager {
                 if (now - lastSecondAt >= 1000L) {
                         lastSecondAt = now;
 
-                        // Release watchdog (since 1.2.4): an authenticated player must
-                        // NEVER remain physically inside the auth dimension. When the
+                        
+                        // NEVER remain physically inside the auth dimension.
+// When the
                         // release teleport fails (extreme server or client lag — the
                         // transfer silently no-ops), the player would otherwise be stuck
                         // in the sandbox with all restrictions lifted, free to walk off
-                        // the platform into the void. Every second, anyone who has been
+                        // the platform into the void.
+// Every second, anyone who has been
                         // authenticated for longer than releaseWatchdogSeconds (5 s
                         // default) and is still inside the dimension is automatically
                         // sent back to where they were; the check repeats every second
@@ -391,14 +399,16 @@ public final class AuthManager {
                         // Ability reconciliation (the mirror image of the release
                         // watchdog): the sandbox's entity-level restrictions
                         // (adventure game type, blindness, invulnerable/no-gravity)
-                        // are lifted exactly ONCE, at auth success. When that single
+                        // are lifted exactly ONCE, at auth success.
+// When that single
                         // restore ever misses the live entity (a cross-dimension
                         // teleport recreated the ServerPlayer between ticks) or
                         // half-fails under lag, the player would walk the real world
                         // forever unable to interact or break blocks — while the
                         // packet-level restores (tab list, scoreboard) always went
                         // through the connection, which is exactly what "the tab
-                        // came back but the abilities did not" looks like. Every
+                        // came back but the abilities did not" looks like.
+// Every
                         // second, an authenticated player who is OUTSIDE the auth
                         // dimension is checked once: any sandbox residue still
                         // present is repaired from the pre-quarantine snapshot.
@@ -490,7 +500,9 @@ public final class AuthManager {
         // Authentication flows (all feedback is produced here)
         // ------------------------------------------------------------------
 
-        /** Handles a password login attempt (from the /login command). */
+        /**
+         * Handles a password login attempt (from the /login command).
+         */
         public void handleLogin(AuthSession session, String password) {
                 if (session == null) {
                         return;
@@ -513,7 +525,9 @@ public final class AuthManager {
                 }
         }
 
-        /** Handles a registration attempt (from the /register command). */
+        /**
+         * Handles a registration attempt (from the /register command).
+         */
         public void handleRegister(AuthSession session, String password, String confirmation) {
                 if (session == null) {
                         return;
@@ -550,7 +564,9 @@ public final class AuthManager {
                 }
         }
 
-        /** Logs an authenticated player out and returns them to the auth sandbox. */
+        /**
+         * Logs an authenticated player out and returns them to the auth sandbox.
+         */
         public void logout(ServerPlayer player) {
                 if (player == null) {
                         return;
@@ -577,7 +593,9 @@ public final class AuthManager {
                 sendTranslated(session.player, "auth.logout.success");
         }
 
-        /** Changes the password of the authenticated account of {@code session}. */
+        /**
+         * Changes the password of the authenticated account of session.
+         */
         public void changePassword(AuthSession session, String oldPassword, String newPassword) {
                 if (session == null) {
                         return;
@@ -632,7 +650,9 @@ public final class AuthManager {
                 }
         }
 
-        /** Deletes the account of the authenticated {@code session} after password verification. */
+        /**
+         * Deletes the account of the authenticated session after password verification.
+         */
         public void unregister(AuthSession session, String password) {
                 if (session == null) {
                         return;
@@ -682,13 +702,12 @@ public final class AuthManager {
         // ------------------------------------------------------------------
 
         /**
-         * Sends a branded chat message resolved server-side into literal text
-         * (bypasses the outgoing packet filter). Vanilla clients have none of
-         * the {@code auth.*} translations, so translatable components would
-         * render as raw keys — everything the player sees must be fully
-         * resolved before it leaves the server. {@code null} arguments are
-         * rendered as empty strings, never as the encoder-breaking null that
-         * used to kill the {@code system_chat} packet.
+         * Sends a branded chat message resolved server-side into literal text (bypasses the outgoing packet
+         * filter).
+         * Vanilla clients have none of the auth.* translations, so translatable components would render as raw
+         * keys — everything the player sees must be fully resolved before it leaves the server. null arguments
+         * are rendered as empty strings, never as the encoder-breaking null that used to kill the system_chat
+         * packet.
          */
         public void sendTranslated(ServerPlayer player, String key, Object... args) {
                 if (player == null || key == null) {
@@ -698,9 +717,9 @@ public final class AuthManager {
         }
 
         /**
-         * Sends the authentication prompt: the welcome chat line with the command
-         * instructions, plus (when enabled and not yet shown) the chest auth panel
-         * that vanilla clients render as an ordinary chest menu.
+         * Sends the authentication prompt: the welcome chat line with the command instructions, plus (when
+         * enabled and not yet shown) the chest auth panel that vanilla clients render as an ordinary chest
+         * menu.
          */
         public void sendAuthPrompt(AuthSession session) {
                 if (session == null) {
@@ -741,7 +760,9 @@ public final class AuthManager {
         // Internals
         // ------------------------------------------------------------------
 
-        /** Full post-authentication flow: restore world, restore info, feedback, panel close. */
+        /**
+         * Full post-authentication flow: restore world, restore info, feedback, panel close.
+         */
         private void onAuthSuccess(AuthSession session, String messageKey, String messageArg) {
                 ServerPlayer player = session.player;
                 session.state = AuthState.AUTHENTICATED;
@@ -749,7 +770,8 @@ public final class AuthManager {
                 // fails under lag, the player is auto-rescued 5 seconds later.
                 session.authAtMs = System.currentTimeMillis();
 
-                // 1. Restore the player into the real world.
+                // 1.
+// Restore the player into the real world.
                 worldManager.restore(player, session);
                 // The auth-time game type (the post-restore value) becomes the truth for
                 // the resume record and for the ability reconciliation of a future
@@ -763,9 +785,10 @@ public final class AuthManager {
                         // Reading the game type is best-effort; the snapshot still covers it.
                 }
 
-                // 2. Undo the world-information isolation. Since 1.2.3 this also
+                // 2.
+// Undo the world-information isolation.
                 // re-syncs what the filter ate while the player was quarantined:
-                // listed tab entries (previously unlisted → "empty tab until
+                
                 // rejoin"), any scoreboard objectives created meanwhile, and the
                 // full data of carried maps.
                 MinecraftServer server = player.level().getServer();
@@ -776,16 +799,21 @@ public final class AuthManager {
                 packetFilter.resendMapData(player);
                 packetFilter.restoreCommandTree(player);
 
-                // 3. Close the auth chest panel (a lingering open panel is confusing).
+                // 3.
+// Close the auth chest panel (a lingering open panel is confusing).
                 AuthPanel.close(session);
 
-                // 4. Success feedback.
+                // 4.
+// Success feedback.
                 sendTranslated(player, messageKey, messageArg);
-                // 5. Action bar confirmation (fades by itself; the per-second countdown stops).
+                // 5.
+// Action bar confirmation (fades by itself; the per-second countdown stops).
                 sendActionBar(player, "auth.actionbar.done", session.usernameDisplay);
         }
 
-        /** Throttled failure feedback: chat message + live refresh of an open panel. */
+        /**
+         * Throttled failure feedback: chat message + live refresh of an open panel.
+         */
         private void feedback(AuthSession session, String key, Object arg) {
                 long now = System.currentTimeMillis();
                 if (now - session.lastFeedbackAt < FEEDBACK_MIN_INTERVAL_MS) {
@@ -804,10 +832,10 @@ public final class AuthManager {
         // ------------------------------------------------------------------
 
         /**
-         * One action-bar line per second while unauthenticated: the state hint
-         * plus the deadline countdown (or the lockout timer). This replaces the
-         * periodic chat warnings — the chat stays clean for the welcome line,
-         * the chest panel and real conversation.
+         * One action-bar line per second while unauthenticated: the state hint plus the deadline countdown (or
+         * the lockout timer).
+         * This replaces the periodic chat warnings — the chat stays clean for the welcome line, the chest
+         * panel and real conversation.
          */
         private void sendAuthActionBar(AuthSession session, long now) {
                 ServerPlayer player = session.player;
@@ -833,7 +861,9 @@ public final class AuthManager {
                 sendActionBar(player, key, arg);
         }
 
-        /** Sends a resolved literal action-bar line (no custom packets, unmodified clients render it). */
+        /**
+         * Sends a resolved literal action-bar line (no custom packets, unmodified clients render it).
+         */
         private void sendActionBar(ServerPlayer player, String key, Object... args) {
                 try {
                         // Unbranded on purpose: the action bar sits above the hotbar where

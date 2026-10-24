@@ -25,43 +25,37 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Server-side message resolver.
- *
- * <p>SecureAuth is a <strong>server-side only</strong> mod: the vanilla client
- * does not know any {@code auth.*} translation key, so every player-visible
- * string must be resolved <em>on the server</em> and sent as a literal
- * component. Translatable components are unusable here — a vanilla client
- * would render the raw key (and in 26.2 the {@code system_chat} encoder
- * rejects malformed argument lists outright).</p>
- *
- * <p>This class loads the very same {@code assets/secureauth/lang/*.json}
- * catalogs that ship inside the mod jar, resolves them per player (using the
- * client language reported in the handshake {@code ClientInformation}), and
- * formats them with {@link String#format}-style placeholders. Legacy
- * {@code §x} color codes embedded in the values are rendered by vanilla
- * clients inside literal text, so colors keep working.</p>
- *
- * <p>Fail-safe by design: a missing catalog, a missing key, a broken format
- * pattern or a {@code null} argument never throws — the worst outcome is the
- * raw key or a partially formatted line, never a dropped packet or a crashed
- * tick.</p>
+ * SecureAuth is a server-side only mod: the vanilla client does not know any auth.* translation key,
+ * so every player-visible string must be resolved on the server and sent as a literal component.
+ * This class loads the very same assets/secureauth/lang/*.json catalogs that ship inside the mod jar,
+ * resolves them per player (using the client language reported in the handshake ClientInformation),
+ * and formats them with format-style placeholders.
+ * Legacy §x color codes embedded in the values are rendered by vanilla clients inside literal text, so
+ * colors keep working.
+ * Fail-safe by design: a missing catalog, a missing key, a broken format pattern or a null argument
+ * never throws — the worst outcome is the raw key or a partially formatted line, never a dropped
+ * packet or a crashed tick.
  */
 public final class Lang {
 
         private static final Logger LOGGER = LoggerFactory.getLogger("secureauth.lang");
 
-        /** Reference catalog used when a player's language has no translation. */
+        /**
+         * Reference catalog used when a player's language has no translation.
+         */
         public static final String DEFAULT_LANGUAGE = "en_us";
 
         private static final Gson GSON = new Gson();
 
-        /** Loaded catalogs: language code -> (key -> value). */
+        /**
+         * Loaded catalogs: language code -> (key -> value).
+         */
         private static final Map<String, Map<String, String>> CATALOGS = new ConcurrentHashMap<>();
 
         /**
-         * Keys whose lang values begin with a {@code %s} placeholder reserved for
-         * the resolved {@code auth.prefix} brand. All other keys get the brand
-         * prepended to the resolved string, so their own {@code %s} placeholders
-         * stay bound to the real arguments.
+         * Keys whose lang values begin with a %s placeholder reserved for the resolved auth.prefix brand.
+         * All other keys get the brand prepended to the resolved string, so their own %s placeholders stay
+         * bound to the real arguments.
          */
         public static final Set<String> PREFIXED_KEYS = Set.of(
                         "auth.welcome.new",
@@ -91,9 +85,9 @@ public final class Lang {
         // ------------------------------------------------------------------
 
         /**
-         * Loads every {@code assets/secureauth/lang/*.json} catalog from this
-         * mod's jar (or dev workspace). Called once from the mod initializer;
-         * failures degrade to the raw-key fallback instead of disabling the mod.
+         * Loads every assets/secureauth/lang/*.json catalog from this mod's jar (or dev workspace).
+         * Called once from the mod initializer; failures degrade to the raw-key fallback instead of disabling
+         * the mod.
          */
         public static void load() {
                 boolean loaded = false;
@@ -165,7 +159,9 @@ public final class Lang {
         // Resolution
         // ------------------------------------------------------------------
 
-        /** The catalog language of a player: their client language when translated, else {@code en_us}. */
+        /**
+         * The catalog language of a player: their client language when translated, else en_us.
+         */
         public static String languageOf(ServerPlayer player) {
                 if (player != null) {
                         try {
@@ -180,7 +176,9 @@ public final class Lang {
                 return DEFAULT_LANGUAGE;
         }
 
-        /** The pattern for a key in a catalog (missing keys fall back to the reference, then the raw key). */
+        /**
+         * The pattern for a key in a catalog (missing keys fall back to the reference, then the raw key).
+         */
         public static String pattern(String language, String key) {
                 Map<String, String> catalog = CATALOGS.get(language);
                 String value = catalog != null ? catalog.get(key) : null;
@@ -191,7 +189,9 @@ public final class Lang {
                 return value != null ? value : key;
         }
 
-        /** The resolved brand prefix (reference catalog). */
+        /**
+         * The resolved brand prefix (reference catalog).
+         */
         public static String prefix() {
                 return pattern(DEFAULT_LANGUAGE, "auth.prefix");
         }
@@ -204,7 +204,9 @@ public final class Lang {
                 return branded(languageOf(player), key, args);
         }
 
-        /** Console variant: always the reference catalog. */
+        /**
+         * Console variant: always the reference catalog.
+         */
         public static String textForConsole(String key, Object... args) {
                 return branded(DEFAULT_LANGUAGE, key, args);
         }
@@ -226,22 +228,24 @@ public final class Lang {
         }
 
         /**
-         * A literal component carrying the resolved text. The vanilla client
-         * renders legacy {@code §} codes found inside literal components, so
-         * the color markup in the catalogs keeps working.
+         * A literal component carrying the resolved text.
+         * The vanilla client renders legacy § codes found inside literal components, so the color markup in
+         * the catalogs keeps working.
          */
         public static MutableComponent comp(ServerPlayer player, String key, Object... args) {
                 return Component.literal(text(player, key, args));
         }
 
-        /** Console variant of {@link #comp}. */
+        /**
+         * Console variant of comp.
+         */
         public static MutableComponent compForConsole(String key, Object... args) {
                 return Component.literal(textForConsole(key, args));
         }
 
         /**
-         * An unbranded literal component (panel titles, item names, lore lines).
-         * {@code null} arguments are dropped by {@link #format}.
+         * An unbranded literal component (panel titles, item names, lore lines). null arguments are dropped by
+         * format.
          */
         public static MutableComponent plain(ServerPlayer player, String key, Object... args) {
                 String language = languageOf(player);
@@ -253,10 +257,9 @@ public final class Lang {
         // ------------------------------------------------------------------
 
         /**
-         * Formats a pattern with {@code %s}-style placeholders. {@code null}
-         * arguments become empty strings (never the encoder-breaking
-         * {@code null} component of the old translatable pipeline); a broken
-         * pattern degrades to the raw pattern plus the argument values.
+         * Formats a pattern with %s-style placeholders. null arguments become empty strings (never the
+         * encoder-breaking null component of the old translatable pipeline); a broken pattern degrades to the
+         * raw pattern plus the argument values.
          */
         private static String format(String language, String key, String pattern, Object... args) {
                 if (args == null || args.length == 0) {
