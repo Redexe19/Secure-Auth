@@ -12,15 +12,15 @@ import net.secureauth.security.SecurityLogger;
 /**
  * Login flow with layered brute-force protection:
  * <ol>
- *   <li>per-connection cooldown (anti packet-spam),</li>
- *   <li>per-IP token-bucket rate limit,</li>
- *   <li>per-account failure counter with temporary lockout,</li>
- *   <li>session failure cap with kick.</li>
+ * <li>per-connection cooldown (anti packet-spam),</li>
+ * <li>per-IP token-bucket rate limit,</li>
+ * <li>per-account failure counter with temporary lockout,</li>
+ * <li>session failure cap with kick.</li>
  * </ol>
  *
- * <p>Temporary lockouts are used by default so a hostile third party cannot
+ * Temporary lockouts are used by default so a hostile third party cannot
  * permanently lock someone else's account (denial of service); permanent locks
- * exist only as an explicit opt-in and as an administrator action.</p>
+ * exist only as an explicit opt-in and as an administrator action.
  */
 public final class LoginService {
 

@@ -5,10 +5,10 @@ import java.time.Instant;
 /**
  * A persistent authentication account.
  *
- * <p>Identity model for offline-mode servers: the canonical key is the
+ * Identity model for offline-mode servers: the canonical key is the
  * <em>normalized (lowercase) username</em>; the offline UUID captured at
  * registration is stored for optional strict binding. Password material is
- * kept as algorithm + version + salt + hash + parameters, never plaintext.</p>
+ * kept as algorithm + version + salt + hash + parameters, never plaintext.
  */
 public final class Account {
 

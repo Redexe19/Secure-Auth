@@ -18,15 +18,15 @@ import net.secureauth.config.AuthConfig;
 /**
  * Authentication security log.
  *
- * <p>Two sinks (both optional):</p>
+ * Two sinks (both optional):
  * <ol>
- *   <li>A rolling file under {@code logs/secureauth/} with size-based rotation.</li>
- *   <li>The {@code security_events} table of the account database.</li>
+ * <li>A rolling file under {@code logs/secureauth/} with size-based rotation.</li>
+ * <li>The {@code security_events} table of the account database.</li>
  * </ol>
  *
- * <p>Events are structured — actor, target, ip, details — and passed through
+ * Events are structured — actor, target, ip, details — and passed through
  * {@link Redactor} as defence in depth. Passwords, hashes and session tokens
- * must never be given to this logger.</p>
+ * must never be given to this logger.
  */
 public final class SecurityLogger {
 
