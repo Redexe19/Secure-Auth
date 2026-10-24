@@ -22,36 +22,36 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Movement, player-action and container-click guards for the pre-authentication
  * sandbox (fail closed).
  *
- * <p><b>What it blocks and why.</b> While the player is unauthenticated the
+ * What it blocks and why. While the player is unauthenticated the
  * following serverbound handlers are cancelled at HEAD, before any vanilla
- * logic observes the packet:</p>
+ * logic observes the packet:
  * <ul>
- *   <li>{@code handleMovePlayer(ServerboundMovePlayerPacket)} — the vanilla
- *       handler must not run so the server-side position never follows client
- *       input; the authoritative correction (teleport back to the platform /
- *       into the auth dimension) is performed every tick by
- *       {@code AuthManager.tick} / {@code AuthWorldManager.tick}. Server-to-
- *       client position corrections are outgoing packets and remain fully
- *       functional.</li>
- *   <li>{@code handleMoveVehicle(ServerboundMoveVehiclePacket)} — hardening:
- *       a modified client could otherwise move the (passenger) player
- *       server-side by steering a vehicle.</li>
- *   <li>{@code handlePlayerAction(ServerboundPlayerActionPacket)} — blocks
- *       block digging (start/stop/abort destroy), item dropping (Q / Ctrl+Q),
- *       hand swapping and item-use release inside the sandbox.</li>
- *   <li>{@code handleContainerClick(ServerboundContainerClickPacket)} —
- *       blocks every inventory and container click (moving, shift-moving,
- *       swapping, dropping, crafting, chest/Ender Chest interaction).
- *       <b>Exception:</b> clicks arriving while the player has a SecureAuth
- *       chest menu open ({@link ChestGui} — the auth/admin panels) are let
- *       through: those menus intercept every click themselves (never moving
- *       a real item) and their button items are the authentication UX.
- *       Letting only {@code ChestGui} types through cannot leak a real chest
- *       interaction, because a {@code ChestGui} menu never applies any click
- *       to the underlying container.</li>
+ * <li>{@code handleMovePlayer(ServerboundMovePlayerPacket)} — the vanilla
+ * handler must not run so the server-side position never follows client
+ * input; the authoritative correction (teleport back to the platform /
+ * into the auth dimension) is performed every tick by
+ * {@code AuthManager.tick} / {@code AuthWorldManager.tick}. Server-to-
+ * client position corrections are outgoing packets and remain fully
+ * functional.</li>
+ * <li>{@code handleMoveVehicle(ServerboundMoveVehiclePacket)} — hardening:
+ * a modified client could otherwise move the (passenger) player
+ * server-side by steering a vehicle.</li>
+ * <li>{@code handlePlayerAction(ServerboundPlayerActionPacket)} — blocks
+ * block digging (start/stop/abort destroy), item dropping (Q / Ctrl+Q),
+ * hand swapping and item-use release inside the sandbox.</li>
+ * <li>{@code handleContainerClick(ServerboundContainerClickPacket)} —
+ * blocks every inventory and container click (moving, shift-moving,
+ * swapping, dropping, crafting, chest/Ender Chest interaction).
+ * Exception: clicks arriving while the player has a SecureAuth
+ * chest menu open ({@link ChestGui} — the auth/admin panels) are let
+ * through: those menus intercept every click themselves (never moving
+ * a real item) and their button items are the authentication UX.
+ * Letting only {@code ChestGui} types through cannot leak a real chest
+ * interaction, because a {@code ChestGui} menu never applies any click
+ * to the underlying container.</li>
  * </ul>
  *
- * <p><b>Verified targets</b> (minijavap on the 26.2 game-server jar): all four
+ * Verified targets (minijavap on the 26.2 game-server jar): all four
  * methods are public, return {@code void}, and have the exact descriptors
  * {@code handleMovePlayer(Lnet/minecraft/network/protocol/game/ServerboundMovePlayerPacket;)V},
  * {@code handleMoveVehicle(Lnet/minecraft/network/protocol/game/ServerboundMoveVehiclePacket;)V},
@@ -59,9 +59,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * and {@code handleContainerClick(Lnet/minecraft/network/protocol/game/ServerboundContainerClickPacket;)V}.
  * The {@code player} field is shadowed exactly as declared in the target:
  * {@code public ServerPlayer player} (public, non-static, non-final).
- * Cancellation uses {@code ci.cancel()} — every target returns {@code void}.</p>
+ * Cancellation uses {@code ci.cancel} — every target returns {@code void}.
  *
- * <p><b>Fail closed.</b> The gate consults
+ * Fail closed. The gate consults
  * {@link AuthManager#isAuthenticated(ServerPlayerEntity)}, which returns
  * {@code false} for a missing session — a player the mod never quarantined
  * (e.g. a race between the play-phase switch and the JOIN event) is treated
@@ -70,12 +70,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * behaviour is untouched. Guards are silent by design: movement arrives many
  * times per second, and interactive feedback (throttled
  * {@code auth.interaction.blocked} notices plus sandbox-escape logging) is
- * already provided by the Fabric event guards in {@code SecureAuth}.</p>
+ * already provided by the Fabric event guards in {@code SecureAuth}.
  *
- * <p><b>Failure policy.</b> No exception ever escapes into the vanilla packet
+ * Failure policy. No exception ever escapes into the vanilla packet
  * handlers. An unexpected internal error fails closed (the packet is
  * cancelled) with a debug log, because these guards ARE the security
- * boundary.</p>
+ * boundary.
  */
 @Mixin(ServerPlayNetworkHandler.class)
 public abstract class ServerGamePacketListenerImplMixin {
